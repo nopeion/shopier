@@ -1,0 +1,59 @@
+{
+    "name": "@nopeion/shopier",
+    "version": "1.0.0",
+    "description": "TypeScript SDK for Shopier Payment Integration",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs,esm --dts",
+        "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+        "lint": "eslint . --ext .ts",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
+        "prepublishOnly": "npm run build && npm test"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.0",
+        "@types/node": "^20.0.0",
+        "fast-check": "^3.15.0",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.1.0",
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0"
+    },
+    "author": "nopeion",
+    "license": "MIT",
+    "keywords": [
+        "shopier",
+        "payment",
+        "typescript",
+        "sdk",
+        "turkey",
+        "turkish-payment"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nopeion/shopier.git"
+    },
+    "bugs": {
+        "url": "https://github.com/nopeion/shopier/issues"
+    },
+    "homepage": "https://github.com/nopeion/shopier#readme",
+    "engines": {
+        "node": ">=16.0.0"
+    }
+}
