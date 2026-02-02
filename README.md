@@ -146,7 +146,7 @@ try {
   // ... shopier calls
 } catch (error) {
   if (error instanceof ShopierError) {
-    // Hassas verileri (kredi kartı, API secret vb.) maskeler
+    // Hassas verileri (API anahtarları, kişisel bilgiler vb.) maskeler
     console.error('Ödeme hatası:', error.toSafeJSON());
   }
 }
