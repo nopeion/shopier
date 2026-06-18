@@ -17,12 +17,14 @@ The format follows Keep a Changelog style, and releases should also be mirrored 
 - REST webhook HMAC verification and parsed webhook event helpers.
 - Named credential resolution for checkout, PAT, and OSB multi-key setups.
 - `ShopierOsbClient` for named OSB credential sets.
+- `ShopierPaymentFlow` for PAT-based product payment links while keeping the legacy checkout form flow available.
 - Playground flows for PAT orders, refund creation, REST webhook verification, and OSB verification.
 
 ### Changed
 
 - `npm run lint` now runs TypeScript validation so CI works without undeclared ESLint dependencies.
 - README now documents supported REST endpoints, automatic refund creation, named credential sets, and playground usage.
+- Checkout documentation now separates legacy `api_pay4.php` checkout from modern PAT payment links.
 
 ## [1.0.1] - 2026-06-18
 

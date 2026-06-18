@@ -34,6 +34,12 @@ PAT calls can list orders, fetch transactions, create refunds, and manage other 
 
 Refund creation through the SDK only sends the Shopier API request. Your application must still validate authorization, enforce business rules, and prevent duplicate refund attempts.
 
+## Modern Payment Links
+
+`ShopierPaymentFlow` creates a real Shopier product and returns its `product.url` as the payment link. Store the returned `productId` with your local order id before showing the link to the buyer. When `order.created` arrives, verify the webhook and match `order.lineItems[].productId` back to that stored local order.
+
+Delete or disable temporary products after successful processing only when that matches your business flow. Reuse permanent product URLs for fixed catalog items.
+
 ## REST Webhook Verification
 
 REST webhooks use HMAC-SHA256 over the raw request body. Parse JSON only after verification:

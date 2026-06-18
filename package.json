@@ -25,6 +25,11 @@
             "types": "./dist/webhooks.d.ts",
             "import": "./dist/webhooks.mjs",
             "require": "./dist/webhooks.js"
+        },
+        "./payments": {
+            "types": "./dist/payments.d.ts",
+            "import": "./dist/payments.mjs",
+            "require": "./dist/payments.js"
         }
     },
     "files": [
@@ -36,8 +41,8 @@
         "docs"
     ],
     "scripts": {
-        "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts --format cjs,esm --dts",
-        "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts --format cjs,esm --dts --watch",
+        "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts --format cjs,esm --dts",
+        "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts --format cjs,esm --dts --watch",
         "lint": "tsc --noEmit",
         "test": "jest",
         "test:watch": "jest --watch",

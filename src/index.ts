@@ -13,6 +13,7 @@ export { ShopierWebhook } from './webhook';
 export { ShopierOsbClient, verifyOsb, parseOsbPayload, handleOsb } from './osb';
 export { ShopierApiClient } from './api';
 export { verifyWebhook, parseWebhookEvent, verifyAndParseWebhook, ShopierWebhookVerifier } from './webhooks';
+export { ShopierPaymentFlow, buildFastPayHtml } from './payments';
 
 // Core utilities
 export {
@@ -135,6 +136,17 @@ export type {
   VerifyWebhookResult,
   ShopierWebhookHeaders,
 } from './webhooks';
+
+export type {
+  ShopierPaymentFlowConfig,
+  CreatePaymentLinkOptions,
+  PaymentLinkResult,
+  HandlePaymentWebhookOptions,
+  PaymentCompletedInfo,
+  HandlePaymentWebhookResult,
+  PaymentCompletedHandler,
+  BuildFastPayHtmlOptions,
+} from './payments';
 
 // Enums
 export {

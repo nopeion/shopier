@@ -79,3 +79,13 @@ export type {
   VerifyWebhookResult,
   ShopierWebhookHeaders,
 } from '../webhooks';
+export type {
+  ShopierPaymentFlowConfig,
+  CreatePaymentLinkOptions,
+  PaymentLinkResult,
+  HandlePaymentWebhookOptions,
+  PaymentCompletedInfo,
+  HandlePaymentWebhookResult,
+  PaymentCompletedHandler,
+  BuildFastPayHtmlOptions,
+} from '../payments';

@@ -44,6 +44,13 @@ describe('Public API Exports', () => {
       expect(ShopierSDK.verifyAndParseWebhook).toBeDefined();
       expect(typeof ShopierSDK.verifyAndParseWebhook).toBe('function');
     });
+
+    it('should export PAT payment link flow helpers', () => {
+      expect(ShopierSDK.ShopierPaymentFlow).toBeDefined();
+      expect(typeof ShopierSDK.ShopierPaymentFlow).toBe('function');
+      expect(ShopierSDK.buildFastPayHtml).toBeDefined();
+      expect(typeof ShopierSDK.buildFastPayHtml).toBe('function');
+    });
   });
 
   describe('Signature Functions', () => {

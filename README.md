@@ -13,6 +13,7 @@ TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-base
 ## Features
 
 - Classic Shopier checkout form generation and callback verification.
+- Modern PAT payment link flow that creates Shopier products and returns `product.url`.
 - PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
@@ -24,8 +25,9 @@ TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-base
 
 | Surface | Status | Notes |
 | ------- | ------ | ----- |
-| Classic checkout | Supported | `Shopier#createPayment()` posts to the classic checkout form endpoint. |
+| Legacy/classic checkout | Supported | `Shopier#createPayment()` posts to the old `api_pay4.php` form endpoint. |
 | Classic callback | Supported | `Shopier#verifyCallback()` validates callback signatures. |
+| Modern payment link | Supported | `ShopierPaymentFlow#createPaymentLink()` creates a product through PAT and returns `product.url`. |
 | OSB | Supported | `verifyOsb`, `handleOsb`, and `ShopierOsbClient`. |
 | PAT REST API | Supported | Bearer token client for documented `api.shopier.com/v1` endpoints. |
 | Refunds | Supported | List, get, and create refund requests. |
@@ -70,7 +72,9 @@ SHOPIER_OSB_SECONDARY_PASSWORD=...
 
 Never commit real keys, secrets, PATs, webhook tokens, or OSB passwords.
 
-## Checkout
+## Legacy Checkout
+
+This keeps the old `api_pay4.php` flow available for accounts that still have classic checkout API key/secret credentials.
 
 ```ts
 import { Currency, ProductType, Shopier } from '@nopeion/shopier';
@@ -106,6 +110,42 @@ if (result.success) {
 ```
 
 `verifyCallback` throws `SignatureValidationError` when the callback signature is invalid.
+
+## Modern Payment Link
+
+For newer Shopier accounts, use PAT credentials and create a Shopier product as the payment link carrier.
+
+```ts
+import { ShopierApiClient, ShopierPaymentFlow } from '@nopeion/shopier';
+
+const client = new ShopierApiClient({ pat: process.env.SHOPIER_PAT });
+const payments = new ShopierPaymentFlow({ client });
+
+const payment = await payments.createPaymentLink({
+  title: 'Premium Plan',
+  amount: '149.90',
+  currency: 'TRY',
+  imageUrl: 'https://example.com/cover.png',
+  orderId: 'local-order-123',
+});
+
+console.log(payment.paymentUrl);
+// Store payment.productId with local-order-123 for webhook reconciliation.
+```
+
+For one-off/custom payments, create a product per payment and clean it up after the `order.created` webhook. For fixed catalog items, create the product once and reuse its URL.
+
+`fastPay` can return an auto-submit HTML page, but it requires your Shopier shop slug:
+
+```ts
+const payment = await payments.createPaymentLink({
+  title: 'Premium Plan',
+  amount: 149.9,
+  imageUrl: 'https://example.com/cover.png',
+  fastPay: true,
+  shopSlug: 'your-shop-slug',
+});
+```
 
 ## PAT REST API
 
@@ -229,7 +269,9 @@ import {
   ShopierApiClient,
   ShopierCredentialManager,
   ShopierOsbClient,
+  ShopierPaymentFlow,
   ShopierWebhookVerifier,
+  buildFastPayHtml,
   verifyAndParseWebhook,
 } from '@nopeion/shopier';
 ```
