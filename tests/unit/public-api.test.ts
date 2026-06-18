@@ -13,6 +13,31 @@ describe('Public API Exports', () => {
       expect(ShopierSDK.Shopier).toBeDefined();
       expect(typeof ShopierSDK.Shopier).toBe('function');
     });
+
+    it('should keep exporting legacy callback helper', () => {
+      expect(ShopierSDK.ShopierWebhook).toBeDefined();
+      expect(typeof ShopierSDK.ShopierWebhook).toBe('function');
+    });
+  });
+
+  describe('New module surfaces', () => {
+    it('should export OSB helpers', () => {
+      expect(ShopierSDK.verifyOsb).toBeDefined();
+      expect(typeof ShopierSDK.verifyOsb).toBe('function');
+      expect(ShopierSDK.parseOsbPayload).toBeDefined();
+      expect(typeof ShopierSDK.parseOsbPayload).toBe('function');
+      expect(ShopierSDK.handleOsb).toBeDefined();
+      expect(typeof ShopierSDK.handleOsb).toBe('function');
+    });
+
+    it('should export PAT API client and webhook guards', () => {
+      expect(ShopierSDK.ShopierApiClient).toBeDefined();
+      expect(typeof ShopierSDK.ShopierApiClient).toBe('function');
+      expect(ShopierSDK.verifyWebhook).toBeDefined();
+      expect(typeof ShopierSDK.verifyWebhook).toBe('function');
+      expect(ShopierSDK.parseWebhookEvent).toBeDefined();
+      expect(typeof ShopierSDK.parseWebhookEvent).toBe('function');
+    });
   });
 
   describe('Signature Functions', () => {
@@ -149,6 +174,16 @@ describe('Public API Exports', () => {
     it('should export SignatureValidationError', () => {
       expect(ShopierSDK.SignatureValidationError).toBeDefined();
       expect(typeof ShopierSDK.SignatureValidationError).toBe('function');
+    });
+
+    it('should export ShopierApiUnsupportedOperationError', () => {
+      expect(ShopierSDK.ShopierApiUnsupportedOperationError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierApiUnsupportedOperationError).toBe('function');
+    });
+
+    it('should export ShopierApiRequestError', () => {
+      expect(ShopierSDK.ShopierApiRequestError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierApiRequestError).toBe('function');
     });
   });
 

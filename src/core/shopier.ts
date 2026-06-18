@@ -128,9 +128,10 @@ export class Shopier {
       success: body.status === 'success',
       orderId: body.platform_order_id,
       paymentId: body.payment_id,
-      installment: parseInt(body.installment, 10) || 0,
+      installment: parseInt(body.installment ?? '0', 10) || 0,
       platformOrderId: body.platform_order_id,
       status: body.status,
+      raw: body,
     };
   }
 

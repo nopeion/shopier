@@ -10,6 +10,9 @@
 // Main Shopier class
 export { Shopier } from './core/shopier';
 export { ShopierWebhook } from './webhook';
+export { verifyOsb, parseOsbPayload, handleOsb } from './osb';
+export { ShopierApiClient } from './api';
+export { verifyWebhook, parseWebhookEvent } from './webhooks';
 
 // Core utilities
 export {
@@ -51,6 +54,27 @@ export type {
   PaymentResult,
 } from './types';
 
+export type {
+  OsbCredentials,
+  VerifyOsbOptions,
+  ParseOsbPayloadOptions,
+  OsbCurrency,
+  OsbPayload,
+  VerifyOsbResult,
+  HandleOsbResult,
+} from './osb';
+
+export type {
+  ShopierApiConfig,
+  ShopierApiRequestOptions,
+  ShopierApiErrorBody,
+} from './api';
+
+export type {
+  VerifyWebhookOptions,
+  ShopierWebhookEvent,
+} from './webhooks';
+
 // Enums
 export {
   Currency,
@@ -67,6 +91,8 @@ export {
   InvalidApiSecretError,
   ValidationError,
   SignatureValidationError,
+  ShopierApiUnsupportedOperationError,
+  ShopierApiRequestError,
 } from './errors';
 
 // Renderers

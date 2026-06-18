@@ -10,21 +10,39 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
+        },
+        "./osb": {
+            "types": "./dist/osb.d.ts",
+            "import": "./dist/osb.mjs",
+            "require": "./dist/osb.js"
+        },
+        "./api": {
+            "types": "./dist/api.d.ts",
+            "import": "./dist/api.mjs",
+            "require": "./dist/api.js"
+        },
+        "./webhooks": {
+            "types": "./dist/webhooks.d.ts",
+            "import": "./dist/webhooks.mjs",
+            "require": "./dist/webhooks.js"
         }
     },
     "files": [
         "dist",
         "README.md",
-        "LICENSE"
+        "LICENSE",
+        "CHANGELOG.md",
+        "SECURITY.md",
+        "docs"
     ],
     "scripts": {
-        "build": "tsup src/index.ts --format cjs,esm --dts",
-        "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-        "lint": "eslint . --ext .ts",
+        "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts --format cjs,esm --dts",
+        "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts --format cjs,esm --dts --watch",
+        "lint": "tsc --noEmit",
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "prepublishOnly": "npm run build && npm test"
+        "prepublishOnly": "npm run lint && npm run build && npm test"
     },
     "devDependencies": {
         "@types/jest": "^29.5.0",
