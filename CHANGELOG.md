@@ -13,10 +13,16 @@ The format follows Keep a Changelog style, and releases should also be mirrored 
 - Dedicated docs for getting started, callbacks, security, Next.js, and Express.
 - API compatibility table and visible test coverage summary in the README.
 - Nested checkout playground repo for testing checkout form generation with local package builds.
+- PAT REST API client coverage for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
+- REST webhook HMAC verification and parsed webhook event helpers.
+- Named credential resolution for checkout, PAT, and OSB multi-key setups.
+- `ShopierOsbClient` for named OSB credential sets.
+- Playground flows for PAT orders, refund creation, REST webhook verification, and OSB verification.
 
 ### Changed
 
 - `npm run lint` now runs TypeScript validation so CI works without undeclared ESLint dependencies.
+- README now documents supported REST endpoints, automatic refund creation, named credential sets, and playground usage.
 
 ## [1.0.1] - 2026-06-18
 

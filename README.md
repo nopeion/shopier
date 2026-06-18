@@ -5,47 +5,208 @@
 [![install size](https://packagephobia.com/badge?p=@nopeion/shopier)](https://packagephobia.com/result?p=@nopeion/shopier)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Shopier ödeme sistemi için TypeScript/Node.js SDK'sı.
+TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-based Shopier REST API.
 
 > [!NOTE]
-> Bu paket Shopier ile resmi olarak ilişkili değildir. Topluluk tarafından geliştirilen bağımsız bir SDK'dır.
+> This package is an independent community SDK. It is not officially affiliated with Shopier.
 
-## Özellikler
+## Features
 
-- **Güvenli** - HMAC-SHA256 imzalama, XSS koruması, timing-safe karşılaştırma
-- **Sıfır bağımlılık** - Sadece Node.js built-in modülleri
-- **TypeScript** - Tam tip desteği
-- **Basit API** - Tek method ile ödeme oluşturma
-- **Dual format** - ESM ve CommonJS desteği
+- Classic Shopier checkout form generation and callback verification.
+- PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
+- Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
+- REST webhook HMAC-SHA256 verification and typed event parsing.
+- OSB `res` + `hash` verification and payload normalization.
+- Named credential sets for multiple checkout, PAT, and OSB credentials.
+- ESM, CommonJS, and TypeScript declaration output.
 
-## API uyumluluk tablosu
+## Compatibility
 
-| Ozellik | Durum | Not |
-| ------- | ----- | --- |
-| Odeme formu olusturma | ✅ | Klasik Shopier checkout form akisi. |
-| Callback dogrulama | ✅ | HMAC imza dogrulama ve normalize sonuc. |
-| Taksit destegi | ✅ | `maxInstallment` ile 0-12 arasi. |
-| Coklu para birimi | ✅ | TL, USD, EUR. |
-| OSB dogrulama | ✅ | Legacy OSB `res` + `hash` helperlari. |
-| PAT API client | ⚠️ Guarded | Developer portal semasi netlesene kadar kaynak helperlari kapali. |
-| Yeni webhook dogrulama | ⚠️ Guarded | Signature header ve payload semasi dogrulanmadan varsayim yapmaz. |
-| Refund / iptal | ❌ Planned | Provider API semasi netlestikten sonra eklenebilir. |
-| Sandbox / test mode | ❌ Not supported | Provider tarafinda genel bir sandbox akisi varsayilmiyor. |
+| Surface | Status | Notes |
+| ------- | ------ | ----- |
+| Classic checkout | Supported | `Shopier#createPayment()` posts to the classic checkout form endpoint. |
+| Classic callback | Supported | `Shopier#verifyCallback()` validates callback signatures. |
+| OSB | Supported | `verifyOsb`, `handleOsb`, and `ShopierOsbClient`. |
+| PAT REST API | Supported | Bearer token client for documented `api.shopier.com/v1` endpoints. |
+| Refunds | Supported | List, get, and create refund requests. |
+| REST webhooks | Supported | Verify `Shopier-Signature`, parse event headers and payload. |
+| Sandbox mode | Not assumed | Use real credentials only in server-side local/test environments. |
 
-## Test edilen davranislar
+## Install
 
-CI ve lokal test paketi ozellikle su kritik payment davranislarini gorunur sekilde kapsar:
+```bash
+npm install @nopeion/shopier
+```
 
-- signature generation
-- callback verification
-- invalid signature rejection
-- timing-safe comparison
-- XSS escaping
-- amount validation
-- missing API key / secret validation
-- checkout field mapping
-- OSB hash verification
-- idempotency documentation example
+## Environment
+
+Default credentials:
+
+```bash
+SHOPIER_API_KEY=your-checkout-api-key
+SHOPIER_API_SECRET=your-checkout-api-secret
+SHOPIER_PAT=your-personal-access-token
+SHOPIER_WEBHOOK_TOKEN=your-webhook-token
+SHOPIER_OSB_USERNAME=your-osb-username
+SHOPIER_OSB_PASSWORD=your-osb-password
+```
+
+Named sets for multi-key projects:
+
+```bash
+SHOPIER_CHECKOUT_PRIMARY_API_KEY=...
+SHOPIER_CHECKOUT_PRIMARY_API_SECRET=...
+SHOPIER_CHECKOUT_SECONDARY_API_KEY=...
+SHOPIER_CHECKOUT_SECONDARY_API_SECRET=...
+
+SHOPIER_PAT_PRIMARY=...
+SHOPIER_PAT_SECONDARY=...
+
+SHOPIER_OSB_PRIMARY_USERNAME=...
+SHOPIER_OSB_PRIMARY_PASSWORD=...
+SHOPIER_OSB_SECONDARY_USERNAME=...
+SHOPIER_OSB_SECONDARY_PASSWORD=...
+```
+
+Never commit real keys, secrets, PATs, webhook tokens, or OSB passwords.
+
+## Checkout
+
+```ts
+import { Currency, ProductType, Shopier } from '@nopeion/shopier';
+
+const shopier = new Shopier({ credentialName: 'primary' });
+
+const checkout = shopier.createPayment({
+  amount: 99.99,
+  currency: Currency.TL,
+  buyer: {
+    id: 'user-123',
+    platformOrderId: 'order-123',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    email: 'ada@example.com',
+    phone: '05000000000',
+    productName: 'Premium Plan',
+    productType: ProductType.DOWNLOADABLE_VIRTUAL,
+  },
+});
+
+res.send(checkout.html);
+```
+
+## Callback Verification
+
+```ts
+const result = shopier.verifyCallback(req.body);
+
+if (result.success) {
+  await markOrderPaid(result.platformOrderId, result.paymentId);
+}
+```
+
+`verifyCallback` throws `SignatureValidationError` when the callback signature is invalid.
+
+## PAT REST API
+
+```ts
+import { ShopierApiClient } from '@nopeion/shopier';
+
+const client = new ShopierApiClient({
+  pat: process.env.SHOPIER_PAT,
+});
+
+const orders = await client.orders.list({
+  limit: 10,
+  fulfillmentStatus: 'unfulfilled',
+});
+
+const order = await client.orders.get('order-id');
+const transaction = await client.orders.getTransaction('order-id');
+
+const refund = await client.createRefund({
+  orderId: 'order-id',
+  amount: '10.00',
+  note: 'Customer requested refund',
+});
+```
+
+### Endpoint Map
+
+| Namespace | Methods |
+| --------- | ------- |
+| `balance` | `get`, `transactions.list`, `transactions.get` |
+| `categories` | `list`, `create`, `get`, `update`, `delete` |
+| `discounts.codes` | `list`, `create`, `get`, `update`, `delete` |
+| `discounts.automatic` | `list`, `create`, `get`, `update`, `delete` |
+| `orders` | `list`, `get`, `update`, `fulfill`, `getTransaction` |
+| `payouts` | `list`, `get`, `transactions.list` |
+| `products` | `list`, `create`, `get`, `update`, `delete` |
+| `refunds` | `list`, `create`, `get` |
+| `selections` | `list`, `create`, `get`, `update`, `delete` |
+| `shippings` | `list`, `create`, `get`, `delete` |
+| `shop` | `getOwner`, `getSettings`, `updateSettings` |
+| `variations` | `list`, `create`, `get`, `update`, `delete` |
+| `webhooks` | `list`, `create`, `delete` |
+
+## Webhooks
+
+```ts
+import { verifyAndParseWebhook } from '@nopeion/shopier';
+
+const event = verifyAndParseWebhook({
+  webhookToken: process.env.SHOPIER_WEBHOOK_TOKEN,
+  body: rawBody,
+  headers: req.headers,
+});
+
+switch (event.type) {
+  case 'order.created':
+    await handleOrderCreated(event.data);
+    break;
+  case 'refund.updated':
+    await handleRefundUpdated(event.data);
+    break;
+}
+```
+
+Webhook signatures are computed with HMAC-SHA256 over the raw request body. Keep the raw body unmodified until verification is complete.
+
+## OSB
+
+```ts
+import { ShopierOsbClient } from '@nopeion/shopier';
+
+const osb = new ShopierOsbClient({ credentialName: 'primary' });
+const result = osb.handle({
+  res: req.body.res,
+  hash: req.body.hash,
+});
+
+if (result.verified) {
+  await processOsbPayload(result.payload);
+}
+```
+
+## Playground
+
+The nested [`playground`](./playground) repo provides a local UI for checkout, PAT order/refund calls, webhook verification, and OSB verification.
+
+```bash
+npm run build
+cd playground
+npm install
+copy .env.example .env
+npm start
+```
+
+Open `http://localhost:3000`.
+
+## Reference Package Notes
+
+`shopier-pat-api` inspired a few ergonomic ideas: simple PAT construction, resource methods, webhook verifier instances, and quick local payment-flow examples. This SDK keeps those ideas but implements a broader documented endpoint surface, named credential handling, and separate classic checkout/OSB/REST modules.
+
+## Verify
 
 ```bash
 npm run lint
@@ -53,220 +214,23 @@ npm test
 npm run build
 ```
 
-## Kurulum
+## Security
 
-```bash
-npm install @nopeion/shopier
-```
+- Run all Shopier operations that require secrets on the server.
+- Do not put `SHOPIER_API_SECRET`, PATs, webhook tokens, or OSB passwords in frontend bundles.
+- Use idempotency in your app before fulfilling callbacks or webhook events.
+- Log `ShopierError#toSafeJSON()` instead of raw error details when possible.
 
-## Hızlı Başlangıç
+## Exports
 
-```typescript
-import { Shopier, Currency } from '@nopeion/shopier';
-
-const shopier = new Shopier({
-  apiKey: process.env.SHOPIER_API_KEY,
-  apiSecret: process.env.SHOPIER_API_SECRET,
-});
-
-const { html } = shopier.createPayment({
-  amount: 99.99,
-  currency: Currency.TL,
-  buyer: {
-    id: 'user-123',
-    firstName: 'Ahmet',
-    lastName: 'Yılmaz',
-    email: 'ahmet@example.com',
-    phone: '05551234567',
-    productName: 'Premium Üyelik',
-  },
-  billing: {
-    address: 'Örnek Mah. Test Sok. No:1',
-    city: 'İstanbul',
-    country: 'Türkiye',
-    postcode: '34000',
-  },
-});
-
-// HTML'i tarayıcıya gönder
-res.send(html);
-```
-
-## API
-
-### `createPayment(options): PaymentResult`
-
-Ödeme formu oluşturur.
-
-| Parametre | Tip | Zorunlu | Açıklama |
-|-----------|-----|---------|----------|
-| `amount` | `number` | ✅ | Ödeme tutarı |
-| `buyer` | `BuyerInfo` | ✅ | Alıcı bilgileri |
-| `billing` | `BillingAddress` | - | Fatura adresi |
-| `shipping` | `ShippingAddress` | - | Kargo adresi |
-| `currency` | `Currency` | - | Para birimi (varsayılan: TL) |
-| `maxInstallment` | `number` | - | Maks. taksit (0-12) |
-| `language` | `Language` | - | Dil (varsayılan: TR) |
-
-**Dönen değer:**
-
-```typescript
-interface PaymentResult {
-  html: string;           // Auto-submit HTML sayfası
-  formData: FormData;     // Form verileri
-  actionUrl: string;      // Shopier URL
-  hiddenInputs: string;   // Hidden input HTML
-}
-```
-
-### `verifyCallback(body): CallbackResult`
-
-Shopier'dan gelen callback'i doğrular.
-
-```typescript
-const result = shopier.verifyCallback(req.body);
-
-if (result.success) {
-  console.log('Ödeme başarılı:', result.orderId);
-}
-```
-
-## Örnekler
-
-Detaylı örnekler için [`examples/`](./examples) klasörüne bakın:
-
-| Örnek | Açıklama |
-|-------|----------|
-| [`basic.ts`](./examples/basic.ts) | Temel kullanım |
-| [`express/server.js`](./examples/express/server.js) | Express.js entegrasyonu |
-| [`nextjs/route.ts`](./examples/nextjs/route.ts) | Next.js App Router |
-| [`vue/App.vue`](./examples/vue/App.vue) | Vue.js component |
-
-## Dokumantasyon
-
-- [Getting started](./docs/getting-started.md)
-- [Callbacks](./docs/callbacks.md)
-- [Security](./docs/security.md)
-- [Next.js](./docs/nextjs.md)
-- [Express](./docs/express.md)
-
-## Checkout playground
-
-Bu repo icinde nested bir companion playground bulunur: [`playground`](./playground).
-
-```bash
-npm run build
-cd playground
-npm install
-npm start
-```
-
-Playground, local package buildini kullanarak Shopier checkout HTML'i olusturur. Gercek odeme testi icin `playground/.env.example` dosyasini `.env` olarak kopyalayip Shopier checkout credentiallarini girin.
-
-## OSB, PAT API ve yeni webhooklar
-
-### OSB helpers
-
-OSB (Otomatik Siparis Bildirimi) Shopier tarafinda legacy olarak konumlanir, ancak panelde kullanilabildigi icin paket dogrulama ve parse helperlari saglar. Paket yalnizca provider payload'ini dogrular/normalize eder; kredi yukleme, siparis tamamlama ve idempotency uygulama tarafinda kalmalidir.
-
-```typescript
-import { handleOsb } from '@nopeion/shopier/osb';
-
-const result = handleOsb({
-  res: req.body.res,
-  hash: req.body.hash,
-  username: process.env.SHOPIER_OSB_USERNAME!,
-  password: process.env.SHOPIER_OSB_PASSWORD!,
-});
-
-if (result.verified) {
-  console.log(result.payload?.orderId);
-  res.send('success');
-}
-```
-
-### PAT API client
-
-PAT (Personal Access Token) Shopier API erisimi icindir. Checkout form signature'i icin `apiSecret` yerine veya OSB hash password'u yerine kullanilmaz.
-
-```typescript
-import { ShopierApiClient } from '@nopeion/shopier/api';
-
-const api = new ShopierApiClient({
-  personalAccessToken: process.env.SHOPIER_PAT!,
-});
-```
-
-Shopier developer portal endpoint ve response semalari netlesene kadar `orders.get/list` gibi kaynak helperlari guarded durumdadir ve acik hata verir.
-
-### Yeni webhook modulu
-
-`ShopierWebhook` sinifi geriye uyumluluk icin legacy callback helper olarak kalir. Yeni Shopier webhook sistemi icin ayri modulu kullanin:
-
-```typescript
-import { verifyWebhook } from '@nopeion/shopier/webhooks';
-```
-
-Webhook signature header'i ve payload semasi developer portal uzerinden kesinlesmeden paket tahmini dogrulama yapmaz; bu yuzden yeni webhook helperlari simdilik acik unsupported hatasi verir.
-
-## Environment Variables
-
-```bash
-SHOPIER_API_KEY=your-api-key
-SHOPIER_API_SECRET=your-api-secret
-SHOPIER_OSB_USERNAME=your-osb-username
-SHOPIER_OSB_PASSWORD=your-osb-password
-SHOPIER_PAT=your-personal-access-token
-```
-
-## Güvenlik
-
-- ✅ HMAC-SHA256 imza doğrulama
-- ✅ Timing-safe karşılaştırma
-- ✅ XSS koruması
-- ✅ Cryptographically secure random
-
-> [!CAUTION]
-> API Secret'ınızı asla client-side'da kullanmayın!
-
-> [!IMPORTANT]
-> Callback endpoint'inizi HTTPS üzerinden sunun.
-
-> [!WARNING]
-> **Idempotency (Tekrarlanabilirlik):** Shopier callback'leri ağ sorunları nedeniyle aynı sipariş için birden fazla kez gelebilir. Sipariş numarası (`orderId`) kullanılarak mükerrer işlem kontrolü yapılmalıdır.
-
-## Hata Yönetimi
-
-Hatalar `ShopierError` sınıfından türetilir ve production ortamları için güvenli loglama metodları içerir.
-
-```typescript
+```ts
 import {
-  ShopierError,
-  ValidationError,
-  SignatureValidationError,
-  InvalidApiKeyError,
-} from '@nopeion/shopier';
-
-try {
-  // ... shopier calls
-} catch (error) {
-  if (error instanceof ShopierError) {
-    // Hassas verileri (API anahtarları, kişisel bilgiler vb.) maskeler
-    console.error('Ödeme hatası:', error.toSafeJSON());
-  }
-}
-```
-
-## TypeScript
-
-Tüm tipler export edilir:
-
-```typescript
-import type {
-  PaymentOptions,
-  PaymentResult,
-  BuyerInfo,
-  CallbackResult,
+  Shopier,
+  ShopierApiClient,
+  ShopierCredentialManager,
+  ShopierOsbClient,
+  ShopierWebhookVerifier,
+  verifyAndParseWebhook,
 } from '@nopeion/shopier';
 ```
 
@@ -276,4 +240,3 @@ import type {
 
 - GitHub: [@nopeion](https://github.com/nopeion)
 - Email: [nopeiondev@gmail.com](mailto:nopeiondev@gmail.com)
-
