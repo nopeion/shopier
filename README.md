@@ -13,7 +13,7 @@ TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-base
 ## Features
 
 - Classic Shopier checkout form generation and callback verification.
-- Modern PAT payment link flow that creates Shopier products and returns `product.url`.
+- Modern PAT checkout flow that creates Shopier products and can open checkout with fast pay HTML.
 - PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
@@ -27,7 +27,7 @@ TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-base
 | ------- | ------ | ----- |
 | Legacy/classic checkout | Supported | `Shopier#createPayment()` posts to the old `api_pay4.php` form endpoint. |
 | Classic callback | Supported | `Shopier#verifyCallback()` validates callback signatures. |
-| Modern payment link | Supported | `ShopierPaymentFlow#createPaymentLink()` creates a product through PAT and returns `product.url`. |
+| Modern PAT checkout | Supported | `ShopierPaymentFlow#createPaymentLink()` creates a product through PAT; `paymentUrl` is the product page and `checkoutHtml` opens checkout. |
 | OSB | Supported | `verifyOsb`, `handleOsb`, and `ShopierOsbClient`. |
 | PAT REST API | Supported | Bearer token client for documented `api.shopier.com/v1` endpoints. |
 | Refunds | Supported | List, get, and create refund requests. |
@@ -111,9 +111,9 @@ if (result.success) {
 
 `verifyCallback` throws `SignatureValidationError` when the callback signature is invalid.
 
-## Modern Payment Link
+## Modern PAT Checkout
 
-For newer Shopier accounts, use PAT credentials and create a Shopier product as the payment link carrier.
+For newer Shopier accounts, use PAT credentials and create a Shopier product as the payment carrier.
 
 ```ts
 import { ShopierApiClient, ShopierPaymentFlow } from '@nopeion/shopier';
@@ -127,24 +127,28 @@ const payment = await payments.createPaymentLink({
   currency: 'TRY',
   imageUrl: 'https://example.com/cover.png',
   orderId: 'local-order-123',
+  fastPay: true,
+  shopSlug: 'your-shop-slug',
 });
 
-console.log(payment.paymentUrl);
+res.send(payment.checkoutHtml);
 // Store payment.productId with local-order-123 for webhook reconciliation.
 ```
 
-For one-off/custom payments, create a product per payment and clean it up after the `order.created` webhook. For fixed catalog items, create the product once and reuse its URL.
+`payment.paymentUrl` is the Shopier product page. For direct checkout, send `payment.checkoutHtml` from your server so the browser posts to Shopier checkout.
 
-`fastPay` can return an auto-submit HTML page, but it requires your Shopier shop slug:
+For one-off/custom payments, create a product per payment and clean it up after the `order.created` webhook. For fixed catalog items, create the product once and reuse its checkout form.
+
+If you only need the product page:
 
 ```ts
 const payment = await payments.createPaymentLink({
   title: 'Premium Plan',
   amount: 149.9,
   imageUrl: 'https://example.com/cover.png',
-  fastPay: true,
-  shopSlug: 'your-shop-slug',
 });
+
+console.log(payment.paymentUrl);
 ```
 
 ## PAT REST API

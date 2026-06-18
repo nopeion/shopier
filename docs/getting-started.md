@@ -58,9 +58,9 @@ const checkout = shopier.createPayment({
 
 Send `checkout.html` as a server response, or render `checkout.formData` into your own server-generated form.
 
-## Create a Modern Payment Link
+## Create a Modern Checkout
 
-For PAT-based Shopier API usage, create a product and use the returned `product.url` as the payment link.
+For PAT-based Shopier API usage, create a product and send checkout HTML from your server.
 
 ```ts
 import { ShopierApiClient, ShopierPaymentFlow } from '@nopeion/shopier';
@@ -74,10 +74,14 @@ const payment = await payments.createPaymentLink({
   currency: 'TRY',
   imageUrl: 'https://example.com/cover.png',
   orderId: 'checkout-123',
+  fastPay: true,
+  shopSlug: 'your-shop-slug',
 });
+
+res.send(payment.checkoutHtml);
 ```
 
-Store `payment.productId` with your local order id. When the `order.created` webhook arrives, match the order line item product id back to your local order.
+`payment.paymentUrl` opens the product page. Store `payment.productId` with your local order id. When the `order.created` webhook arrives, match the order line item product id back to your local order.
 
 ## Call the PAT REST API
 

@@ -58,6 +58,7 @@ export interface PaymentLinkResult {
   product: ShopierProduct;
   productInput: ShopierCreateProductInput;
   orderId?: string;
+  checkoutHtml?: string;
   fastPayHtml?: string;
 }
 
@@ -119,16 +120,19 @@ export class ShopierPaymentFlow {
       throw new ValidationError('Shopier product response did not include a payment URL');
     }
 
+    const checkoutHtml = options.fastPay ? buildFastPayHtml({
+      productId: product.id,
+      shopSlug: shopSlug as string,
+    }) : undefined;
+
     return {
       productId: product.id,
       paymentUrl: product.url,
       product,
       productInput,
       orderId: options.orderId,
-      fastPayHtml: options.fastPay ? buildFastPayHtml({
-        productId: product.id,
-        shopSlug: shopSlug as string,
-      }) : undefined,
+      checkoutHtml,
+      fastPayHtml: checkoutHtml,
     };
   }
 

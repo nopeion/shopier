@@ -103,6 +103,25 @@ describe('PAT payment link flow', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it('should return checkout HTML when fastPay is enabled', async () => {
+    const fetcher = jest.fn(async () => jsonResponse({
+      id: 'product-1',
+      url: 'https://www.shopier.com/123456',
+    })) as unknown as typeof fetch;
+    const client = new ShopierApiClient({ pat: 'pat-token', fetch: fetcher });
+    const flow = new ShopierPaymentFlow({ client, shopSlug: 'my-shop' });
+
+    const result = await flow.createPaymentLink({
+      title: 'Premium Plan',
+      amount: 149.9,
+      imageUrl: 'https://example.com/cover.png',
+      fastPay: true,
+    });
+
+    expect(result.checkoutHtml).toContain('https://www.shopier.com/s/shipping/my-shop');
+    expect(result.fastPayHtml).toBe(result.checkoutHtml);
+  });
+
   it('should process order.created webhooks and delete temporary products by default', async () => {
     const fetcher = jest.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch;
     const client = new ShopierApiClient({ pat: 'pat-token', fetch: fetcher });
