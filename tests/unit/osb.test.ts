@@ -1,5 +1,5 @@
 import { createHmac } from 'crypto';
-import { handleOsb, parseOsbPayload, verifyOsb } from '../../src/osb';
+import { ShopierOsbClient, handleOsb, parseOsbPayload, verifyOsb } from '../../src/osb';
 
 describe('OSB helpers', () => {
   const username = 'osb-user';
@@ -90,5 +90,23 @@ describe('OSB helpers', () => {
     const res = makeRes({ orderid: '123' });
 
     expect(verifyOsb({ username, password, res, hash: 'abcd' }).verified).toBe(false);
+  });
+
+  it('should use named OSB credentials through ShopierOsbClient', () => {
+    const originalEnv = { ...process.env };
+    process.env.SHOPIER_OSB_PRIMARY_USERNAME = username;
+    process.env.SHOPIER_OSB_PRIMARY_PASSWORD = password;
+
+    try {
+      const res = makeRes({ orderid: 'named-osb' });
+      const client = new ShopierOsbClient({ credentialName: 'primary' });
+
+      expect(client.handle({ res, hash: makeHash(res) })).toMatchObject({
+        verified: true,
+        payload: { orderId: 'named-osb' },
+      });
+    } finally {
+      process.env = originalEnv;
+    }
   });
 });

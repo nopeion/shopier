@@ -1,8 +1,14 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { resolveOsbCredentials } from './core/credentials';
 
 export interface OsbCredentials {
   username: string;
   password: string;
+}
+
+export interface OsbClientConfig extends Partial<OsbCredentials> {
+  credentialName?: string;
+  envPrefix?: string;
 }
 
 export interface VerifyOsbOptions extends OsbCredentials {
@@ -39,6 +45,32 @@ export interface HandleOsbResult {
   verified: boolean;
   payload?: OsbPayload;
   error?: string;
+}
+
+export class ShopierOsbClient {
+  private readonly credentials: OsbCredentials;
+
+  constructor(config: OsbClientConfig = {}) {
+    this.credentials = resolveOsbCredentials(config);
+  }
+
+  verify(options: Omit<VerifyOsbOptions, keyof OsbCredentials>): VerifyOsbResult {
+    return verifyOsb({
+      ...this.credentials,
+      ...options,
+    });
+  }
+
+  parse(res: string | ParseOsbPayloadOptions): OsbPayload {
+    return parseOsbPayload(res);
+  }
+
+  handle(options: Omit<VerifyOsbOptions, keyof OsbCredentials>): HandleOsbResult {
+    return handleOsb({
+      ...this.credentials,
+      ...options,
+    });
+  }
 }
 
 const CURRENCY_MAP: Record<string, OsbCurrency> = {

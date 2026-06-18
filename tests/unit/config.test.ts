@@ -1,9 +1,13 @@
 import {
   ConfigManager,
+  ShopierCredentialManager,
   resolveConfig,
   resolveApiKey,
   resolveApiSecret,
-} from '../../src/core/config';
+  resolveCheckoutCredentials,
+  resolveOsbCredentials,
+  resolvePatCredentials,
+} from '../../src/core';
 import { InvalidApiKeyError, InvalidApiSecretError } from '../../src/errors';
 import { Language, WebsiteIndex } from '../../src/enums';
 
@@ -15,6 +19,13 @@ describe('Config Manager', () => {
     // Clear relevant env vars before each test
     delete process.env.SHOPIER_API_KEY;
     delete process.env.SHOPIER_API_SECRET;
+    delete process.env.SHOPIER_CHECKOUT_PRIMARY_API_KEY;
+    delete process.env.SHOPIER_CHECKOUT_PRIMARY_API_SECRET;
+    delete process.env.SHOPIER_OSB_PRIMARY_USERNAME;
+    delete process.env.SHOPIER_OSB_PRIMARY_PASSWORD;
+    delete process.env.SHOPIER_PAT_PRIMARY;
+    delete process.env.SHOPIER_CHECKOUT_SECONDARY_API_KEY;
+    delete process.env.SHOPIER_CHECKOUT_SECONDARY_API_SECRET;
   });
 
   afterAll(() => {
@@ -173,6 +184,65 @@ describe('Config Manager', () => {
 
       expect(result.apiKey).toBe('env-key');
       expect(result.apiSecret).toBe('env-secret');
+    });
+
+    it('should resolve named checkout credential env vars', () => {
+      process.env.SHOPIER_CHECKOUT_PRIMARY_API_KEY = 'primary-key';
+      process.env.SHOPIER_CHECKOUT_PRIMARY_API_SECRET = 'primary-secret';
+
+      const result = resolveConfig({ credentialName: 'primary' });
+
+      expect(result.apiKey).toBe('primary-key');
+      expect(result.apiSecret).toBe('primary-secret');
+      expect(result.credentialName).toBe('primary');
+    });
+  });
+
+  describe('credential resolvers', () => {
+    it('should resolve checkout, OSB, and PAT named sets from environment', () => {
+      process.env.SHOPIER_CHECKOUT_SECONDARY_API_KEY = 'secondary-key';
+      process.env.SHOPIER_CHECKOUT_SECONDARY_API_SECRET = 'secondary-secret';
+      process.env.SHOPIER_OSB_PRIMARY_USERNAME = 'osb-user';
+      process.env.SHOPIER_OSB_PRIMARY_PASSWORD = 'osb-password';
+      process.env.SHOPIER_PAT_PRIMARY = 'pat-token';
+
+      expect(resolveCheckoutCredentials({ credentialName: 'secondary' })).toEqual({
+        apiKey: 'secondary-key',
+        apiSecret: 'secondary-secret',
+      });
+      expect(resolveOsbCredentials({ credentialName: 'primary' })).toEqual({
+        username: 'osb-user',
+        password: 'osb-password',
+      });
+      expect(resolvePatCredentials({ credentialName: 'primary' })).toEqual({
+        personalAccessToken: 'pat-token',
+      });
+    });
+
+    it('should let ShopierCredentialManager manage explicit sets', () => {
+      const manager = new ShopierCredentialManager({
+        checkout: {
+          checkoutA: { apiKey: 'checkout-key', apiSecret: 'checkout-secret' },
+        },
+        osb: {
+          osbA: { username: 'osb-user', password: 'osb-password' },
+        },
+        pat: {
+          restA: { personalAccessToken: 'pat-token' },
+        },
+      });
+
+      expect(manager.getCheckout('checkoutA')).toEqual({
+        apiKey: 'checkout-key',
+        apiSecret: 'checkout-secret',
+      });
+      expect(manager.getOsb('osbA')).toEqual({
+        username: 'osb-user',
+        password: 'osb-password',
+      });
+      expect(manager.getPat('restA')).toEqual({
+        personalAccessToken: 'pat-token',
+      });
     });
   });
 

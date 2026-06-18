@@ -24,3 +24,20 @@ export {
   resolveApiSecret,
   ResolvedConfig,
 } from './config';
+
+export {
+  ShopierCredentialManager,
+  resolveCheckoutCredentials,
+  resolveOsbCredentials,
+  resolvePatCredentials,
+} from './credentials';
+
+export type {
+  ShopierCheckoutCredentials,
+  ShopierOsbCredentials,
+  ShopierPatCredentials,
+  ResolveCheckoutCredentialsOptions,
+  ResolveOsbCredentialsOptions,
+  ResolvePatCredentialsOptions,
+  ShopierCredentialManagerOptions,
+} from './credentials';

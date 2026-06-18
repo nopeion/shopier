@@ -1,6 +1,10 @@
 import { ShopierConfig } from '../types';
 import { Language, WebsiteIndex } from '../enums';
 import { InvalidApiKeyError, InvalidApiSecretError } from '../errors';
+import {
+  resolveCheckoutCredentials,
+  ShopierCheckoutCredentials,
+} from './credentials';
 
 /**
  * Default configuration values for Shopier SDK
@@ -25,6 +29,7 @@ const ENV_VARS = {
 export interface ResolvedConfig {
   apiKey: string;
   apiSecret: string;
+  credentialName?: string;
   language: Language;
   moduleVersion: string;
   websiteIndex: WebsiteIndex;
@@ -89,21 +94,27 @@ export function resolveApiSecret(configValue?: string): string | undefined {
  * @throws InvalidApiSecretError if API secret cannot be resolved
  */
 export function resolveConfig(config: ShopierConfig = {}): ResolvedConfig {
-  const apiKey = resolveApiKey(config.apiKey);
-  const apiSecret = resolveApiSecret(config.apiSecret);
+  let credentials: ShopierCheckoutCredentials;
   
-  // Validate credentials
-  if (!apiKey) {
-    throw new InvalidApiKeyError('API key is missing or empty');
-  }
-  
-  if (!apiSecret) {
-    throw new InvalidApiSecretError('API secret is missing or empty');
+  try {
+    credentials = resolveCheckoutCredentials({
+      apiKey: config.apiKey,
+      apiSecret: config.apiSecret,
+      credentialName: config.credentialName,
+      envPrefix: config.envPrefix,
+    });
+  } catch (error) {
+    if (error instanceof InvalidApiKeyError || error instanceof InvalidApiSecretError) {
+      throw error;
+    }
+
+    throw error;
   }
   
   return {
-    apiKey,
-    apiSecret,
+    apiKey: credentials.apiKey,
+    apiSecret: credentials.apiSecret,
+    credentialName: config.credentialName,
     language: config.language ?? DEFAULT_CONFIG.language,
     moduleVersion: config.moduleVersion ?? DEFAULT_CONFIG.moduleVersion,
     websiteIndex: config.websiteIndex ?? DEFAULT_CONFIG.websiteIndex,

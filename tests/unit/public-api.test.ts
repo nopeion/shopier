@@ -22,6 +22,8 @@ describe('Public API Exports', () => {
 
   describe('New module surfaces', () => {
     it('should export OSB helpers', () => {
+      expect(ShopierSDK.ShopierOsbClient).toBeDefined();
+      expect(typeof ShopierSDK.ShopierOsbClient).toBe('function');
       expect(ShopierSDK.verifyOsb).toBeDefined();
       expect(typeof ShopierSDK.verifyOsb).toBe('function');
       expect(ShopierSDK.parseOsbPayload).toBeDefined();
@@ -33,10 +35,14 @@ describe('Public API Exports', () => {
     it('should export PAT API client and webhook guards', () => {
       expect(ShopierSDK.ShopierApiClient).toBeDefined();
       expect(typeof ShopierSDK.ShopierApiClient).toBe('function');
+      expect(ShopierSDK.ShopierWebhookVerifier).toBeDefined();
+      expect(typeof ShopierSDK.ShopierWebhookVerifier).toBe('function');
       expect(ShopierSDK.verifyWebhook).toBeDefined();
       expect(typeof ShopierSDK.verifyWebhook).toBe('function');
       expect(ShopierSDK.parseWebhookEvent).toBeDefined();
       expect(typeof ShopierSDK.parseWebhookEvent).toBe('function');
+      expect(ShopierSDK.verifyAndParseWebhook).toBeDefined();
+      expect(typeof ShopierSDK.verifyAndParseWebhook).toBe('function');
     });
   });
 
@@ -100,6 +106,11 @@ describe('Public API Exports', () => {
       expect(typeof ShopierSDK.ConfigManager).toBe('function');
     });
 
+    it('should export ShopierCredentialManager', () => {
+      expect(ShopierSDK.ShopierCredentialManager).toBeDefined();
+      expect(typeof ShopierSDK.ShopierCredentialManager).toBe('function');
+    });
+
     it('should export resolveConfig', () => {
       expect(ShopierSDK.resolveConfig).toBeDefined();
       expect(typeof ShopierSDK.resolveConfig).toBe('function');
@@ -113,6 +124,15 @@ describe('Public API Exports', () => {
     it('should export resolveApiSecret', () => {
       expect(ShopierSDK.resolveApiSecret).toBeDefined();
       expect(typeof ShopierSDK.resolveApiSecret).toBe('function');
+    });
+
+    it('should export credential resolvers', () => {
+      expect(ShopierSDK.resolveCheckoutCredentials).toBeDefined();
+      expect(typeof ShopierSDK.resolveCheckoutCredentials).toBe('function');
+      expect(ShopierSDK.resolveOsbCredentials).toBeDefined();
+      expect(typeof ShopierSDK.resolveOsbCredentials).toBe('function');
+      expect(ShopierSDK.resolvePatCredentials).toBeDefined();
+      expect(typeof ShopierSDK.resolvePatCredentials).toBe('function');
     });
   });
 
