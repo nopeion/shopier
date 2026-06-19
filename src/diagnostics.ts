@@ -2,7 +2,6 @@ export type ShopierDiagnosticStatus = 'pass' | 'warn' | 'fail';
 
 export type ShopierDiagnosticRequirement =
   | 'pat'
-  | 'checkout'
   | 'osb'
   | 'webhook'
   | 'shopSlug'
@@ -30,7 +29,6 @@ export interface ShopierDiagnosticsResult {
 
 const DEFAULT_REQUIREMENTS: ShopierDiagnosticRequirement[] = [
   'pat',
-  'checkout',
   'webhook',
   'shopSlug',
 ];
@@ -42,13 +40,6 @@ export function runShopierDiagnostics(options: ShopierDiagnosticsOptions = {}): 
 
   if (requirements.includes('pat')) {
     checks.push(checkPat(env));
-  }
-
-  if (requirements.includes('checkout')) {
-    checks.push(checkPair(env, 'checkout', [
-      ['SHOPIER_API_KEY', 'SHOPIER_API_SECRET'],
-      ['SHOPIER_CHECKOUT_API_KEY', 'SHOPIER_CHECKOUT_API_SECRET'],
-    ]));
   }
 
   if (requirements.includes('osb')) {
@@ -120,11 +111,11 @@ function checkPat(env: Record<string, string | undefined>): ShopierDiagnosticChe
 
 function checkPair(
   env: Record<string, string | undefined>,
-  id: 'checkout' | 'osb',
+  id: 'osb',
   pairs: Array<[string, string]>
 ): ShopierDiagnosticCheck {
   const completePair = pairs.find(([left, right]) => hasValue(env[left]) && hasValue(env[right]));
-  const namedComplete = id === 'checkout' ? hasNamedCheckoutPair(env) : hasNamedOsbPair(env);
+  const namedComplete = hasNamedOsbPair(env);
 
   if (completePair || namedComplete) {
     return pass(id, titleFor(id), completePair ? `${completePair[0]} and ${completePair[1]} are configured.` : `Named ${id} credentials are configured.`);
@@ -180,15 +171,6 @@ function checkImageUrl(imageUrl: string | undefined): ShopierDiagnosticCheck {
   } catch {
     return fail('imageUrl', 'Product image URL', 'Image URL is not valid.', 'Provide a full public HTTPS URL.');
   }
-}
-
-function hasNamedCheckoutPair(env: Record<string, string | undefined>): boolean {
-  return hasNamedPair(env, [
-    [/^SHOPIER_CHECKOUT_(.+)_API_KEY$/, 'key'],
-    [/^SHOPIER_(?!CHECKOUT_)(.+)_API_KEY$/, 'key'],
-    [/^SHOPIER_CHECKOUT_(.+)_API_SECRET$/, 'secret'],
-    [/^SHOPIER_(?!CHECKOUT_)(.+)_API_SECRET$/, 'secret'],
-  ], ['key', 'secret']);
 }
 
 function hasNamedOsbPair(env: Record<string, string | undefined>): boolean {
@@ -261,15 +243,13 @@ function hasValue(value: string | undefined): boolean {
   return typeof value === 'string' && value.trim() !== '';
 }
 
-function titleFor(id: 'checkout' | 'osb' | 'webhook' | 'shopSlug'): string {
-  if (id === 'checkout') return 'Classic checkout credentials';
+function titleFor(id: 'osb' | 'webhook' | 'shopSlug'): string {
   if (id === 'osb') return 'OSB credentials';
   if (id === 'webhook') return 'Webhook token';
   return 'Shop slug';
 }
 
-function actionFor(id: 'checkout' | 'osb' | 'webhook' | 'shopSlug'): string {
-  if (id === 'checkout') return 'Set SHOPIER_API_KEY and SHOPIER_API_SECRET for classic checkout.';
+function actionFor(id: 'osb' | 'webhook' | 'shopSlug'): string {
   if (id === 'osb') return 'Set SHOPIER_OSB_USERNAME and SHOPIER_OSB_PASSWORD only if OSB is enabled.';
   if (id === 'webhook') return 'Set SHOPIER_WEBHOOK_TOKEN before verifying REST webhooks.';
   return 'Set SHOPIER_SHOP_SLUG before using hosted checkout.';

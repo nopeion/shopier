@@ -22,19 +22,19 @@ You should receive an initial response within 72 hours. Valid reports will be ha
 
 ## Handling Shopier Credentials
 
-- Never expose `SHOPIER_API_SECRET`, OSB password, or PAT values in frontend code.
-- Only create checkout forms on a trusted server.
+- Never expose PATs, webhook tokens, or OSB passwords in frontend code.
+- Only create PAT checkout flows and REST API calls on a trusted server.
 - Keep `.env` files out of git and deployment logs.
 - Treat Personal Access Tokens like passwords; rotate them if they are logged or shared.
 
-## Callback and OSB Safety
+## Webhook and OSB Safety
 
-- Always verify callback signatures before delivering a product, credit, or entitlement.
+- Always verify REST webhook or OSB signatures before delivering a product, credit, or entitlement.
 - Treat invalid signatures as a hard failure.
-- Make callback and OSB processing idempotent. Shopier or the network may retry notifications.
-- Use stable provider identifiers such as `payment_id`, `platform_order_id`, or OSB order id to prevent duplicate fulfillment.
+- Make webhook and OSB processing idempotent. Shopier or the network may retry notifications.
+- Use stable provider identifiers such as webhook id, Shopier order id, or OSB order id to prevent duplicate fulfillment.
 - Return the literal `success` body only after OSB verification and your own fulfillment logic have safely completed.
 
 ## Disclosure Scope
 
-This package helps generate Shopier checkout forms and verify provider callbacks. Application-level authorization, database transactions, product delivery, refunds, and account recovery remain the responsibility of the integrating application.
+This package helps create PAT-based checkout flows and verify Shopier REST webhook and OSB notifications. Application-level authorization, database transactions, product delivery, refunds, and account recovery remain the responsibility of the integrating application.

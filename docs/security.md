@@ -4,19 +4,25 @@ Payment integrations are security-sensitive. Keep the trust boundary simple: all
 
 ## Secrets
 
-- `SHOPIER_API_SECRET` signs checkout and verifies callbacks.
-- `SHOPIER_OSB_PASSWORD` verifies OSB hashes.
-- `SHOPIER_PAT` is for Shopier API access and must not be used as a checkout secret.
+- `SHOPIER_PAT` is for Shopier API access.
 - `SHOPIER_WEBHOOK_TOKEN` verifies REST webhook notifications.
+- `SHOPIER_OSB_PASSWORD` verifies OSB hashes.
 
 Never put these values in frontend JavaScript, static HTML, screenshots, logs, or support tickets.
 
-## Callback Verification
+## REST Webhook Verification
 
-- Call `verifyCallback` before fulfilling anything.
-- Reject invalid signatures.
-- Keep raw callback logs redacted.
-- Use idempotency keys to avoid duplicate fulfillment.
+REST webhooks use HMAC-SHA256 over the raw request body. Parse JSON only after verification:
+
+```ts
+const event = verifyAndParseWebhook({
+  webhookToken: process.env.SHOPIER_WEBHOOK_TOKEN,
+  headers: req.headers,
+  body: rawBody,
+});
+```
+
+Use idempotency keys before granting credits, delivering products, or marking an order as paid.
 
 ## OSB Verification
 
@@ -34,23 +40,11 @@ PAT calls can list orders, fetch transactions, create refunds, and manage other 
 
 Refund creation through the SDK only sends the Shopier API request. Your application must still validate authorization, enforce business rules, and prevent duplicate refund attempts.
 
-## Modern Payment Links
+## Payment Links
 
 `ShopierPaymentFlow` creates a real Shopier product and returns its `product.url` as the payment link. Store the returned `productId` with your local order id before showing the link to the buyer. When `order.created` arrives, verify the webhook and match `order.lineItems[].productId` back to that stored local order.
 
 Delete or disable temporary products after successful processing only when that matches your business flow. Reuse permanent product URLs for fixed catalog items.
-
-## REST Webhook Verification
-
-REST webhooks use HMAC-SHA256 over the raw request body. Parse JSON only after verification:
-
-```ts
-const event = verifyAndParseWebhook({
-  webhookToken: process.env.SHOPIER_WEBHOOK_TOKEN,
-  headers: req.headers,
-  body: rawBody,
-});
-```
 
 ## What This Package Does Not Do
 

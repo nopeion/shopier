@@ -5,12 +5,10 @@ describe('diagnostics helpers', () => {
     const result = runShopierDiagnostics({
       env: {
         SHOPIER_PAT: 'pat',
-        SHOPIER_API_KEY: 'key',
-        SHOPIER_API_SECRET: 'secret',
         SHOPIER_WEBHOOK_TOKEN: 'webhook',
         SHOPIER_SHOP_SLUG: 'shop',
       },
-      require: ['pat', 'checkout', 'webhook', 'shopSlug'],
+      require: ['pat', 'webhook', 'shopSlug'],
     });
 
     expect(result.ok).toBe(true);

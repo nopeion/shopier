@@ -1,8 +1,6 @@
 import * as fc from 'fast-check';
 import {
   ShopierError,
-  InvalidApiKeyError,
-  InvalidApiSecretError,
   ValidationError,
   SignatureValidationError
 } from '../../src/errors';
@@ -11,15 +9,13 @@ import {
  * **Feature: shopier-sdk, Property 12: Error Class Hierarchy**
  * **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
  *
- * For any ShopierError subclass (InvalidApiKeyError, InvalidApiSecretError,
- * ValidationError, SignatureValidationError), it SHALL be an instance of
+ * For any shared ShopierError subclass (ValidationError,
+ * SignatureValidationError), it SHALL be an instance of
  * ShopierError and SHALL have code, message, and details properties.
  */
 describe('Property 12: Error Class Hierarchy', () => {
   // Error class configurations with their expected codes
   const errorClasses = [
-    { ErrorClass: InvalidApiKeyError, expectedCode: 'INVALID_API_KEY', name: 'InvalidApiKeyError' },
-    { ErrorClass: InvalidApiSecretError, expectedCode: 'INVALID_API_SECRET', name: 'InvalidApiSecretError' },
     { ErrorClass: ValidationError, expectedCode: 'VALIDATION_ERROR', name: 'ValidationError' },
     { ErrorClass: SignatureValidationError, expectedCode: 'SIGNATURE_VALIDATION_ERROR', name: 'SignatureValidationError' }
   ];

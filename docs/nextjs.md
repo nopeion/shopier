@@ -1,61 +1,46 @@
-# Next.js
-
-Use `@nopeion/shopier` in Route Handlers so secrets stay server-side.
+# Next.js App Router
 
 ## Create Checkout
 
 ```ts
 // app/api/shopier/checkout/route.ts
-import { Shopier, Currency, ProductType } from '@nopeion/shopier';
+import { ShopierApiClient, ShopierPaymentFlow } from '@nopeion/shopier';
 
 export async function POST() {
-  const shopier = new Shopier({
-    apiKey: process.env.SHOPIER_API_KEY!,
-    apiSecret: process.env.SHOPIER_API_SECRET!,
+  const client = new ShopierApiClient({ pat: process.env.SHOPIER_PAT });
+  const payments = new ShopierPaymentFlow({ client });
+
+  const payment = await payments.createPaymentLink({
+    title: 'Premium Package',
+    amount: '149.00',
+    currency: 'TRY',
+    imageUrl: 'https://cdn.example.com/cover.png',
+    orderId: `order-${Date.now()}`,
+    hostedCheckout: true,
+    shopSlug: process.env.SHOPIER_SHOP_SLUG,
   });
 
-  const checkout = shopier.createPayment({
-    amount: 149,
-    currency: Currency.TL,
-    buyer: {
-      id: 'user-123',
-      platformOrderId: `order-${Date.now()}`,
-      firstName: 'Ada',
-      lastName: 'Lovelace',
-      email: 'ada@example.com',
-      phone: '05000000000',
-      productName: 'Premium Package',
-      productType: ProductType.DOWNLOADABLE_VIRTUAL,
-    },
-  });
-
-  return new Response(checkout.html, {
+  return new Response(payment.checkoutHtml, {
     headers: { 'content-type': 'text/html; charset=utf-8' },
   });
 }
 ```
 
-## Verify Callback
+## Verify Webhook
 
 ```ts
-// app/api/shopier/callback/route.ts
-import { Shopier } from '@nopeion/shopier';
+// app/api/shopier/webhook/route.ts
+import { verifyAndParseWebhook } from '@nopeion/shopier';
 
 export async function POST(request: Request) {
-  const form = await request.formData();
-  const body = Object.fromEntries(form.entries()) as Record<string, string>;
+  const rawBody = await request.text();
 
-  const shopier = new Shopier({
-    apiKey: process.env.SHOPIER_API_KEY!,
-    apiSecret: process.env.SHOPIER_API_SECRET!,
+  const event = verifyAndParseWebhook({
+    webhookToken: process.env.SHOPIER_WEBHOOK_TOKEN,
+    headers: request.headers,
+    body: rawBody,
   });
 
-  const result = shopier.verifyCallback(body as any);
-
-  if (!result.success) {
-    return Response.json({ ok: false, status: result.status }, { status: 400 });
-  }
-
-  return Response.json({ ok: true, orderId: result.platformOrderId });
+  return Response.json({ ok: true, type: event.type });
 }
 ```

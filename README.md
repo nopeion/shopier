@@ -5,30 +5,28 @@
 [![install size](https://packagephobia.com/badge?p=@nopeion/shopier)](https://packagephobia.com/result?p=@nopeion/shopier)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-based Shopier REST API.
+TypeScript/Node.js SDK for Shopier PAT checkout flows, REST API calls, REST webhooks, and OSB notifications.
 
 > [!NOTE]
 > This package is an independent community SDK. It is not officially affiliated with Shopier.
 
 ## Features
 
-- Classic Shopier checkout form generation and callback verification.
-- Modern PAT checkout flow that creates Shopier products and can open Shopier hosted checkout.
+- PAT checkout flow that creates Shopier products and can open Shopier hosted checkout.
 - PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
 - OSB `res` + `hash` verification and payload normalization.
 - Diagnostics, webhook router, framework response helpers, and test fixtures for real integrations.
-- Named credential sets for multiple checkout, PAT, and OSB credentials.
+- Named credential support for PAT and OSB credentials.
 - ESM, CommonJS, and TypeScript declaration output.
 
 ## Compatibility
 
 | Surface | Status | Notes |
 | ------- | ------ | ----- |
-| Legacy/classic checkout | Supported | `Shopier#createPayment()` posts to the old `api_pay4.php` form endpoint. |
-| Classic callback | Supported | `Shopier#verifyCallback()` validates callback signatures. |
-| Modern PAT checkout | Supported | `ShopierPaymentFlow#createPaymentLink()` creates a product through PAT; `paymentUrl` is the product page and `checkoutHtml` opens checkout. |
+| PAT hosted checkout | Supported | `ShopierPaymentFlow#createPaymentLink()` creates a product through PAT; `paymentUrl` is the product page and `checkoutHtml` opens checkout. |
+| Existing product checkout | Supported | `buildHostedCheckoutHtml()` opens hosted checkout for a product you already manage in Shopier. |
 | OSB | Supported | `verifyOsb`, `handleOsb`, and `ShopierOsbClient`. |
 | PAT REST API | Supported | Bearer token client for documented `api.shopier.com/v1` endpoints. |
 | Refunds | Supported | List, get, and create refund requests. |
@@ -46,10 +44,9 @@ npm install @nopeion/shopier
 Default credentials:
 
 ```bash
-SHOPIER_API_KEY=your-checkout-api-key
-SHOPIER_API_SECRET=your-checkout-api-secret
 SHOPIER_PAT=your-personal-access-token
 SHOPIER_WEBHOOK_TOKEN=your-webhook-token
+SHOPIER_SHOP_SLUG=your-shop-slug
 SHOPIER_OSB_USERNAME=your-osb-username
 SHOPIER_OSB_PASSWORD=your-osb-password
 ```
@@ -57,11 +54,6 @@ SHOPIER_OSB_PASSWORD=your-osb-password
 Named sets for multi-key projects:
 
 ```bash
-SHOPIER_CHECKOUT_PRIMARY_API_KEY=...
-SHOPIER_CHECKOUT_PRIMARY_API_SECRET=...
-SHOPIER_CHECKOUT_SECONDARY_API_KEY=...
-SHOPIER_CHECKOUT_SECONDARY_API_SECRET=...
-
 SHOPIER_PAT_PRIMARY=...
 SHOPIER_PAT_SECONDARY=...
 
@@ -71,50 +63,11 @@ SHOPIER_OSB_SECONDARY_USERNAME=...
 SHOPIER_OSB_SECONDARY_PASSWORD=...
 ```
 
-Never commit real keys, secrets, PATs, webhook tokens, or OSB passwords.
+Never commit real keys, PATs, webhook tokens, or OSB passwords.
 
-## Legacy Checkout
+## PAT Hosted Checkout
 
-This keeps the old `api_pay4.php` flow available for accounts that still have classic checkout API key/secret credentials.
-
-```ts
-import { Currency, ProductType, Shopier } from '@nopeion/shopier';
-
-const shopier = new Shopier({ credentialName: 'primary' });
-
-const checkout = shopier.createPayment({
-  amount: 99.99,
-  currency: Currency.TL,
-  buyer: {
-    id: 'user-123',
-    platformOrderId: 'order-123',
-    firstName: 'Ada',
-    lastName: 'Lovelace',
-    email: 'ada@example.com',
-    phone: '05000000000',
-    productName: 'Premium Plan',
-    productType: ProductType.DOWNLOADABLE_VIRTUAL,
-  },
-});
-
-res.send(checkout.html);
-```
-
-## Callback Verification
-
-```ts
-const result = shopier.verifyCallback(req.body);
-
-if (result.success) {
-  await markOrderPaid(result.platformOrderId, result.paymentId);
-}
-```
-
-`verifyCallback` throws `SignatureValidationError` when the callback signature is invalid.
-
-## Modern PAT Checkout
-
-For newer Shopier accounts, use PAT credentials and create a Shopier product as the payment carrier.
+Use PAT credentials to create a Shopier product as the payment carrier.
 
 ```ts
 import { ShopierApiClient, ShopierPaymentFlow } from '@nopeion/shopier';
@@ -139,6 +92,17 @@ res.send(payment.checkoutHtml);
 `payment.paymentUrl` is the Shopier product page. For hosted checkout, send `payment.checkoutHtml` from your server so the browser posts to Shopier checkout. `fastPay` and `fastPayHtml` remain as backward-compatible aliases, but new code should use `hostedCheckout` and `hostedCheckoutHtml`.
 
 For one-off/custom payments, create a product per payment and clean it up after the `order.created` webhook. For fixed catalog items, create the product once and reuse its checkout form.
+
+```ts
+import { buildHostedCheckoutHtml } from '@nopeion/shopier';
+
+const checkoutHtml = buildHostedCheckoutHtml({
+  productId: '48260043',
+  shopSlug: process.env.SHOPIER_SHOP_SLUG!,
+});
+
+res.send(checkoutHtml);
+```
 
 ```ts
 const payment = await payments.createEphemeralPayment({
@@ -286,11 +250,11 @@ import { createMockShopierFetch, createShopierWebhookFixture } from '@nopeion/sh
 
 ## Playground
 
-The nested [`playground`](./playground) repo provides a local UI for checkout, PAT order/refund calls, webhook verification, and OSB verification.
+The companion [`shopier-playground`](https://github.com/nopeion/shopier-playground) repository provides a local UI for checkout, PAT order/refund calls, webhook verification, and OSB verification.
 
 ```bash
-npm run build
-cd playground
+git clone https://github.com/nopeion/shopier-playground.git
+cd shopier-playground
 npm install
 copy .env.example .env
 npm start
@@ -298,9 +262,11 @@ npm start
 
 Open `http://localhost:3000`.
 
+See the [v2 migration guide](./docs/migration-v2.md) before upgrading from the classic checkout API.
+
 ## Reference Package Notes
 
-`shopier-pat-api` inspired a few ergonomic ideas: simple PAT construction, resource methods, webhook verifier instances, and quick local payment-flow examples. This SDK keeps those ideas but implements a broader documented endpoint surface, named credential handling, and separate classic checkout/OSB/REST modules.
+`shopier-pat-api` inspired a few ergonomic ideas: simple PAT construction, resource methods, webhook verifier instances, and quick local payment-flow examples. This SDK keeps those ideas while adding broader endpoint coverage, payment-flow helpers, diagnostics, OSB helpers, and testing utilities.
 
 ## Verify
 
@@ -313,17 +279,15 @@ npm run build
 ## Security
 
 - Run all Shopier operations that require secrets on the server.
-- Do not put `SHOPIER_API_SECRET`, PATs, webhook tokens, or OSB passwords in frontend bundles.
-- Use idempotency in your app before fulfilling callbacks or webhook events.
+- Do not put PATs, webhook tokens, or OSB passwords in frontend bundles.
+- Use idempotency in your app before fulfilling webhook or OSB events.
 - Log `ShopierError#toSafeJSON()` instead of raw error details when possible.
 
 ## Exports
 
 ```ts
 import {
-  Shopier,
   ShopierApiClient,
-  ShopierCredentialManager,
   ShopierOsbClient,
   ShopierPaymentFlow,
   ShopierWebhookRouter,

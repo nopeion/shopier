@@ -1,52 +1,45 @@
 # Express
 
-Use URL-encoded body parsing for classic Shopier callbacks.
+Run Shopier calls on the server and return hosted checkout HTML to the browser.
 
-## Checkout Route
-
-```js
+```ts
 import express from 'express';
-import { Shopier, Currency, ProductType } from '@nopeion/shopier';
+import { ShopierApiClient, ShopierPaymentFlow, verifyAndParseWebhook } from '@nopeion/shopier';
 
 const app = express();
-app.use(express.urlencoded({ extended: false }));
 
-const shopier = new Shopier({
-  apiKey: process.env.SHOPIER_API_KEY,
-  apiSecret: process.env.SHOPIER_API_SECRET,
-});
+app.post('/checkout', express.urlencoded({ extended: false }), async (req, res, next) => {
+  try {
+    const client = new ShopierApiClient({ pat: process.env.SHOPIER_PAT });
+    const payments = new ShopierPaymentFlow({ client });
 
-app.post('/checkout', (req, res) => {
-  const checkout = shopier.createPayment({
-    amount: Number(req.body.amount || 149),
-    currency: Currency.TL,
-    buyer: {
-      id: 'user-123',
-      platformOrderId: `order-${Date.now()}`,
-      firstName: 'Ada',
-      lastName: 'Lovelace',
-      email: 'ada@example.com',
-      phone: '05000000000',
-      productName: 'Premium Package',
-      productType: ProductType.DOWNLOADABLE_VIRTUAL,
-    },
-  });
+    const payment = await payments.createPaymentLink({
+      title: 'Premium Package',
+      amount: '149.00',
+      currency: 'TRY',
+      imageUrl: 'https://cdn.example.com/cover.png',
+      orderId: `order-${Date.now()}`,
+      hostedCheckout: true,
+      shopSlug: process.env.SHOPIER_SHOP_SLUG,
+    });
 
-  res.type('html').send(checkout.html);
-});
-```
-
-## Callback Route
-
-```js
-app.post('/callback', (req, res) => {
-  const result = shopier.verifyCallback(req.body);
-
-  if (!result.success) {
-    return res.status(400).send('failed');
+    res.type('html').send(payment.checkoutHtml);
+  } catch (error) {
+    next(error);
   }
+});
 
-  // Fulfill idempotently here.
-  return res.send('ok');
+app.post('/shopier/webhook', express.raw({ type: '*/*' }), async (req, res, next) => {
+  try {
+    const event = verifyAndParseWebhook({
+      webhookToken: process.env.SHOPIER_WEBHOOK_TOKEN,
+      headers: req.headers,
+      body: req.body,
+    });
+
+    res.json({ ok: true, type: event.type });
+  } catch (error) {
+    next(error);
+  }
 });
 ```

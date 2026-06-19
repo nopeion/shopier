@@ -1,31 +1,34 @@
 # Changelog
 
-All notable changes to `@nopeion/shopier` will be documented in this file.
-
-The format follows Keep a Changelog style, and releases should also be mirrored in GitHub Releases.
+All notable changes to `@nopeion/shopier` are documented in this file. Releases should also be mirrored in GitHub Releases.
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [2.0.0] - 2026-06-19
+
 ### Added
 
-- Security policy and payment integration safety guidance.
-- GitHub Actions CI matrix for Node.js 16, 18, 20, and 22.
-- Dedicated docs for getting started, callbacks, security, Next.js, and Express.
-- API compatibility table and visible test coverage summary in the README.
-- Nested checkout playground repo for testing checkout form generation with local package builds.
-- PAT REST API client coverage for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
-- REST webhook HMAC verification and parsed webhook event helpers.
-- Named credential resolution for checkout, PAT, and OSB multi-key setups.
-- `ShopierOsbClient` for named OSB credential sets.
-- `ShopierPaymentFlow` for PAT-based checkout/product payment links while keeping the legacy checkout form flow available.
-- Playground flows for PAT orders, refund creation, REST webhook verification, and OSB verification.
+- PAT REST API coverage for balances, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
+- PAT hosted-checkout helpers, payment lifecycle helpers, diagnostics, framework adapters, test fixtures, and OSB helpers.
+- REST webhook HMAC verification, typed event parsing, and routing helpers.
+- A separate public `shopier-playground` companion repository.
 
 ### Changed
 
-- `npm run lint` now runs TypeScript validation so CI works without undeclared ESLint dependencies.
-- README now documents supported REST endpoints, automatic refund creation, named credential sets, and playground usage.
-- Checkout documentation now separates legacy `api_pay4.php`, PAT product URLs, and direct fast pay checkout HTML.
-- Playground payment creation now opens direct checkout when a shop slug is configured, while keeping the product page URL in the response.
+- Documentation, examples, and security guidance now use PAT checkout, REST webhooks, and OSB only.
+- The build clears stale output before packaging.
+- The supported Node.js baseline is now 18 or later.
+
+### Removed
+
+- The classic `Shopier` checkout form API, `verifyCallback`, checkout credential resolvers, and classic callback documentation.
+- Classic checkout and callback examples.
+
+### Migration
+
+- This is a breaking release. Replace the classic checkout API key/secret flow with `ShopierApiClient` and `ShopierPaymentFlow`; replace classic callback handling with REST webhooks or OSB. See [the v2 migration guide](./docs/migration-v2.md).
 
 ## [1.0.1] - 2026-06-18
 

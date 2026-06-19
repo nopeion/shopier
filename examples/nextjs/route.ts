@@ -1,79 +1,34 @@
-/**
- * Next.js App Router ile Shopier Entegrasyonu
- * 
- * Checkout: app/api/checkout/route.ts
- * Callback: app/api/callback/route.ts
- */
+import { ShopierApiClient, ShopierPaymentFlow, verifyAndParseWebhook } from '@nopeion/shopier';
 
-import { NextResponse } from 'next/server';
-import { Shopier, SignatureValidationError } from '@nopeion/shopier';
+// Use this as app/api/shopier/checkout/route.ts.
+export async function createCheckoutResponse(request: Request) {
+  const body = await request.json();
+  const client = new ShopierApiClient({ pat: process.env.SHOPIER_PAT });
+  const payments = new ShopierPaymentFlow({ client });
+  const payment = await payments.createPaymentLink({
+    title: body.title ?? 'Premium Package',
+    amount: body.amount ?? '149.00',
+    currency: 'TRY',
+    imageUrl: process.env.SHOPIER_PRODUCT_IMAGE_URL,
+    orderId: body.orderId ?? `order-${Date.now()}`,
+    hostedCheckout: true,
+    shopSlug: process.env.SHOPIER_SHOP_SLUG,
+  });
 
-const shopier = new Shopier({
-    apiKey: process.env.SHOPIER_API_KEY!,
-    apiSecret: process.env.SHOPIER_API_SECRET!,
-});
-
-/**
- * Checkout Endpoint
- * POST /api/checkout
- */
-export async function POST(req: Request) {
-    try {
-        const body = await req.json();
-
-        const { html } = shopier.createPayment({
-            amount: body.amount,
-            buyer: {
-                id: body.orderId || `ORDER-${Date.now()}`,
-                firstName: body.firstName,
-                lastName: body.lastName,
-                email: body.email,
-                phone: body.phone,
-                productName: body.productName,
-            },
-            billing: body.billing,
-        });
-
-        return new Response(html, {
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        });
-    } catch (error) {
-        console.error('Checkout error:', error);
-        return NextResponse.json({ error: 'Checkout failed' }, { status: 500 });
-    }
+  return new Response(payment.checkoutHtml, {
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+  });
 }
 
-/**
- * Callback Endpoint (ayrı dosyada kullanın: app/api/callback/route.ts)
- * POST /api/callback
- */
-export async function POST_CALLBACK(req: Request) {
-    try {
-        const formData = await req.formData();
-        const body = Object.fromEntries(formData.entries()) as any;
+// Use this as app/api/shopier/webhook/route.ts.
+export async function createWebhookResponse(request: Request) {
+  const rawBody = await request.text();
+  const event = verifyAndParseWebhook({
+    webhookToken: process.env.SHOPIER_WEBHOOK_TOKEN,
+    headers: request.headers,
+    body: rawBody,
+  });
 
-        const result = shopier.verifyCallback(body);
-
-        if (result.success) {
-            console.log('Payment successful:', {
-                orderId: result.orderId,
-                paymentId: result.paymentId,
-            });
-
-            // TODO: Veritabanınızı güncelleyin
-            // await prisma.order.update({
-            //   where: { id: result.orderId },
-            //   data: { status: 'paid', paymentId: result.paymentId },
-            // });
-
-            return new NextResponse('OK', { status: 200 });
-        }
-
-        return new NextResponse('Payment failed', { status: 400 });
-    } catch (error) {
-        if (error instanceof SignatureValidationError) {
-            return new NextResponse('Invalid signature', { status: 403 });
-        }
-        return new NextResponse('Error', { status: 500 });
-    }
+  // Fulfill idempotently using event.id or the Shopier order id.
+  return Response.json({ ok: true, type: event.type });
 }
