@@ -74,7 +74,7 @@ const payment = await payments.createPaymentLink({
   currency: 'TRY',
   imageUrl: 'https://example.com/cover.png',
   orderId: 'checkout-123',
-  fastPay: true,
+  hostedCheckout: true,
   shopSlug: 'your-shop-slug',
 });
 

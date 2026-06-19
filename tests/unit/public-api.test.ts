@@ -48,8 +48,21 @@ describe('Public API Exports', () => {
     it('should export PAT payment link flow helpers', () => {
       expect(ShopierSDK.ShopierPaymentFlow).toBeDefined();
       expect(typeof ShopierSDK.ShopierPaymentFlow).toBe('function');
+      expect(ShopierSDK.buildHostedCheckoutHtml).toBeDefined();
+      expect(typeof ShopierSDK.buildHostedCheckoutHtml).toBe('function');
       expect(ShopierSDK.buildFastPayHtml).toBeDefined();
       expect(typeof ShopierSDK.buildFastPayHtml).toBe('function');
+    });
+
+    it('should export integration helper modules', () => {
+      expect(ShopierSDK.runShopierDiagnostics).toBeDefined();
+      expect(typeof ShopierSDK.runShopierDiagnostics).toBe('function');
+      expect(ShopierSDK.ShopierWebhookRouter).toBeDefined();
+      expect(typeof ShopierSDK.ShopierWebhookRouter).toBe('function');
+      expect(ShopierSDK.createPaymentResponse).toBeDefined();
+      expect(typeof ShopierSDK.createPaymentResponse).toBe('function');
+      expect(ShopierSDK.createMockShopierFetch).toBeDefined();
+      expect(typeof ShopierSDK.createMockShopierFetch).toBe('function');
     });
   });
 
@@ -211,6 +224,19 @@ describe('Public API Exports', () => {
     it('should export ShopierApiRequestError', () => {
       expect(ShopierSDK.ShopierApiRequestError).toBeDefined();
       expect(typeof ShopierSDK.ShopierApiRequestError).toBe('function');
+    });
+
+    it('should export specific API error classes', () => {
+      expect(ShopierSDK.ShopierUnauthorizedPatError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierUnauthorizedPatError).toBe('function');
+      expect(ShopierSDK.ShopierInvalidMediaUrlError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierInvalidMediaUrlError).toBe('function');
+      expect(ShopierSDK.ShopierRateLimitError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierRateLimitError).toBe('function');
+      expect(ShopierSDK.ShopierHostedCheckoutListingError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierHostedCheckoutListingError).toBe('function');
+      expect(ShopierSDK.ShopierFetchUnavailableError).toBeDefined();
+      expect(typeof ShopierSDK.ShopierFetchUnavailableError).toBe('function');
     });
   });
 

@@ -78,14 +78,40 @@ export type {
   ShopierWebhookEvent,
   VerifyWebhookResult,
   ShopierWebhookHeaders,
+  ShopierWebhookHandler,
+  ShopierWebhookRouterOptions,
+  ShopierWebhookDispatchResult,
 } from '../webhooks';
 export type {
   ShopierPaymentFlowConfig,
   CreatePaymentLinkOptions,
+  CreateEphemeralPaymentOptions,
   PaymentLinkResult,
+  EphemeralPaymentResult,
   HandlePaymentWebhookOptions,
   PaymentCompletedInfo,
   HandlePaymentWebhookResult,
   PaymentCompletedHandler,
+  BuildHostedCheckoutHtmlOptions,
   BuildFastPayHtmlOptions,
 } from '../payments';
+export type {
+  ShopierDiagnosticStatus,
+  ShopierDiagnosticRequirement,
+  ShopierDiagnosticCheck,
+  ShopierDiagnosticsOptions,
+  ShopierDiagnosticsResult,
+} from '../diagnostics';
+export type {
+  NodeLikeResponse,
+  WebhookRequestLike,
+} from '../frameworks';
+export type {
+  MockShopierFetchCall,
+  MockShopierFetchResponse,
+  MockShopierFetch,
+  ShopierWebhookFixtureOptions,
+  ShopierWebhookFixture,
+  OsbFixtureOptions,
+  OsbFixture,
+} from '../testing';

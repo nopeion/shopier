@@ -1,4 +1,7 @@
 import {
+  createShopierApiError,
+  ShopierError,
+  ShopierFetchUnavailableError,
   ShopierApiRequestError,
   ValidationError,
 } from './errors';
@@ -767,10 +770,7 @@ export class ShopierApiClient {
 
   async request<T>(path: string, options: ShopierApiRequestOptions = {}): Promise<T> {
     if (!this.fetcher) {
-      throw new ShopierApiRequestError(
-        'A fetch implementation is required to call the Shopier API in this runtime',
-        { runtime: 'fetch_missing' }
-      );
+      throw new ShopierFetchUnavailableError(undefined, { runtime: 'fetch_missing' });
     }
 
     const { signal, cleanup } = createRequestSignal(this.timeoutMs, options.signal);
@@ -796,7 +796,7 @@ export class ShopierApiClient {
       const body = await readResponseBody(response);
 
       if (!response.ok) {
-        throw new ShopierApiRequestError('Shopier API response was not successful', {
+        throw createShopierApiError('Shopier API response was not successful', {
           status: response.status,
           statusText: response.statusText,
           body,
@@ -805,7 +805,7 @@ export class ShopierApiClient {
 
       return body as T;
     } catch (error) {
-      if (error instanceof ShopierApiRequestError) {
+      if (error instanceof ShopierError) {
         throw error;
       }
 

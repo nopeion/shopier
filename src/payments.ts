@@ -48,6 +48,10 @@ export interface CreatePaymentLinkOptions {
   placementScore?: number;
   dispatchDuration?: 1 | 2 | 3;
   orderId?: string;
+  hostedCheckout?: boolean;
+  /**
+   * @deprecated Use hostedCheckout instead.
+   */
   fastPay?: boolean;
   shopSlug?: string;
 }
@@ -59,7 +63,25 @@ export interface PaymentLinkResult {
   productInput: ShopierCreateProductInput;
   orderId?: string;
   checkoutHtml?: string;
+  hostedCheckoutHtml?: string;
+  /**
+   * @deprecated Use hostedCheckoutHtml instead.
+   */
   fastPayHtml?: string;
+}
+
+export interface CreateEphemeralPaymentOptions extends CreatePaymentLinkOptions {
+  ttlMs?: number;
+  expiresAt?: Date | string;
+}
+
+export interface EphemeralPaymentResult extends PaymentLinkResult {
+  ephemeral: true;
+  createdAt: string;
+  expiresAt?: string;
+  productIds: string[];
+  cleanup: () => Promise<void>;
+  deleteProduct: () => Promise<void>;
 }
 
 export interface HandlePaymentWebhookOptions {
@@ -108,8 +130,9 @@ export class ShopierPaymentFlow {
   }
 
   async createPaymentLink(options: CreatePaymentLinkOptions): Promise<PaymentLinkResult> {
+    const hostedCheckout = shouldBuildHostedCheckout(options);
     const productInput = this.buildProductInput(options);
-    const shopSlug = options.fastPay ? requireShopSlug(options.shopSlug ?? this.shopSlug) : undefined;
+    const shopSlug = hostedCheckout ? requireShopSlug(options.shopSlug ?? this.shopSlug) : undefined;
     const product = await this.client.products.create(productInput);
 
     if (!product.id) {
@@ -120,7 +143,7 @@ export class ShopierPaymentFlow {
       throw new ValidationError('Shopier product response did not include a payment URL');
     }
 
-    const checkoutHtml = options.fastPay ? buildFastPayHtml({
+    const checkoutHtml = hostedCheckout ? buildHostedCheckoutHtml({
       productId: product.id,
       shopSlug: shopSlug as string,
     }) : undefined;
@@ -132,7 +155,33 @@ export class ShopierPaymentFlow {
       productInput,
       orderId: options.orderId,
       checkoutHtml,
+      hostedCheckoutHtml: checkoutHtml,
       fastPayHtml: checkoutHtml,
+    };
+  }
+
+  async createEphemeralPayment(options: CreateEphemeralPaymentOptions): Promise<EphemeralPaymentResult> {
+    const createdAt = new Date();
+    const result = await this.createPaymentLink(options);
+    let cleaned = false;
+
+    const cleanup = async () => {
+      if (cleaned) {
+        return;
+      }
+
+      await this.client.products.delete(result.productId);
+      cleaned = true;
+    };
+
+    return {
+      ...result,
+      ephemeral: true,
+      createdAt: createdAt.toISOString(),
+      expiresAt: resolveExpiresAt(options, createdAt),
+      productIds: [result.productId],
+      cleanup,
+      deleteProduct: cleanup,
     };
   }
 
@@ -209,15 +258,27 @@ export class ShopierPaymentFlow {
       productIds,
     };
   }
+
+  async cleanupProducts(products: string | string[] | PaymentLinkResult | HandlePaymentWebhookResult): Promise<string[]> {
+    const productIds = normalizeProductIds(products);
+
+    for (const productId of productIds) {
+      await this.client.products.delete(productId);
+    }
+
+    return productIds;
+  }
 }
 
-export interface BuildFastPayHtmlOptions {
+export interface BuildHostedCheckoutHtmlOptions {
   productId: string;
   shopSlug: string;
   quantity?: number;
 }
 
-export function buildFastPayHtml(options: BuildFastPayHtmlOptions): string {
+export type BuildFastPayHtmlOptions = BuildHostedCheckoutHtmlOptions;
+
+export function buildHostedCheckoutHtml(options: BuildHostedCheckoutHtmlOptions): string {
   const productId = requiredText(options.productId, 'productId');
   const shopSlug = requiredText(options.shopSlug, 'shopSlug');
   const quantity = options.quantity ?? 1;
@@ -234,10 +295,10 @@ export function buildFastPayHtml(options: BuildFastPayHtmlOptions): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Shopier odeme yonlendirmesi</title>
+  <title>Shopier checkout yonlendirmesi</title>
 </head>
 <body>
-  <form id="shopier-fast-pay" method="POST" action="https://www.shopier.com/s/shipping/${escapedShopSlug}">
+  <form id="shopier-hosted-checkout" method="POST" action="https://www.shopier.com/s/shipping/${escapedShopSlug}">
     <input type="hidden" name="product_id" value="${escapedProductId}">
     <input type="hidden" name="quantity" value="${quantity}">
     <noscript>
@@ -245,10 +306,17 @@ export function buildFastPayHtml(options: BuildFastPayHtmlOptions): string {
     </noscript>
   </form>
   <script>
-    document.getElementById('shopier-fast-pay').submit();
+    document.getElementById('shopier-hosted-checkout').submit();
   </script>
 </body>
 </html>`;
+}
+
+/**
+ * @deprecated Use buildHostedCheckoutHtml instead.
+ */
+export function buildFastPayHtml(options: BuildFastPayHtmlOptions): string {
+  return buildHostedCheckoutHtml(options);
 }
 
 function resolveMedia(
@@ -290,9 +358,49 @@ function requiredText(value: string | undefined, field: string): string {
   return value.trim();
 }
 
+function shouldBuildHostedCheckout(options: CreatePaymentLinkOptions): boolean {
+  return options.hostedCheckout ?? options.fastPay ?? false;
+}
+
+function resolveExpiresAt(options: CreateEphemeralPaymentOptions, createdAt: Date): string | undefined {
+  if (options.expiresAt instanceof Date) {
+    return options.expiresAt.toISOString();
+  }
+
+  if (typeof options.expiresAt === 'string' && options.expiresAt.trim() !== '') {
+    return new Date(options.expiresAt).toISOString();
+  }
+
+  if (options.ttlMs !== undefined) {
+    if (!Number.isFinite(options.ttlMs) || options.ttlMs <= 0) {
+      throw new ValidationError('ttlMs must be a positive number');
+    }
+
+    return new Date(createdAt.getTime() + options.ttlMs).toISOString();
+  }
+
+  return undefined;
+}
+
+function normalizeProductIds(products: string | string[] | PaymentLinkResult | HandlePaymentWebhookResult): string[] {
+  if (typeof products === 'string') {
+    return [requiredText(products, 'productId')];
+  }
+
+  if (Array.isArray(products)) {
+    return products.map((productId) => requiredText(productId, 'productId'));
+  }
+
+  if ('productIds' in products) {
+    return products.productIds.map((productId) => requiredText(productId, 'productId'));
+  }
+
+  return [requiredText(products.productId, 'productId')];
+}
+
 function requireShopSlug(shopSlug: string | undefined): string {
   if (!shopSlug || shopSlug.trim() === '') {
-    throw new ValidationError('shopSlug is required when fastPay is enabled');
+    throw new ValidationError('shopSlug is required when hostedCheckout is enabled');
   }
 
   return shopSlug.trim();

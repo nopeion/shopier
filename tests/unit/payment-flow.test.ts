@@ -3,6 +3,7 @@ import {
   ShopierApiClient,
   ShopierPaymentFlow,
   ValidationError,
+  buildHostedCheckoutHtml,
   buildFastPayHtml,
 } from '../../src';
 
@@ -75,18 +76,29 @@ describe('PAT payment link flow', () => {
     ).toThrow(ValidationError);
   });
 
-  it('should build fastPay HTML without a hardcoded shop slug', () => {
-    const html = buildFastPayHtml({
+  it('should build hosted checkout HTML without a hardcoded shop slug', () => {
+    const html = buildHostedCheckoutHtml({
       productId: 'product-1',
       shopSlug: 'my-shop',
     });
 
     expect(html).toContain('https://www.shopier.com/s/shipping/my-shop');
     expect(html).toContain('name="product_id" value="product-1"');
+    expect(html).toContain('shopier-hosted-checkout');
     expect(html).not.toContain('authsms');
   });
 
-  it('should require a shop slug when fastPay is enabled', async () => {
+  it('should keep buildFastPayHtml as a backward-compatible alias', () => {
+    expect(buildFastPayHtml({
+      productId: 'product-1',
+      shopSlug: 'my-shop',
+    })).toBe(buildHostedCheckoutHtml({
+      productId: 'product-1',
+      shopSlug: 'my-shop',
+    }));
+  });
+
+  it('should require a shop slug when hostedCheckout is enabled', async () => {
     const fetcher = jest.fn(async () => jsonResponse({
       id: 'product-1',
       url: 'https://www.shopier.com/123456',
@@ -98,12 +110,32 @@ describe('PAT payment link flow', () => {
       title: 'Premium Plan',
       amount: 149.9,
       imageUrl: 'https://example.com/cover.png',
-      fastPay: true,
+      hostedCheckout: true,
     })).rejects.toThrow(ValidationError);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('should return checkout HTML when fastPay is enabled', async () => {
+  it('should return checkout HTML when hostedCheckout is enabled', async () => {
+    const fetcher = jest.fn(async () => jsonResponse({
+      id: 'product-1',
+      url: 'https://www.shopier.com/123456',
+    })) as unknown as typeof fetch;
+    const client = new ShopierApiClient({ pat: 'pat-token', fetch: fetcher });
+    const flow = new ShopierPaymentFlow({ client, shopSlug: 'my-shop' });
+
+    const result = await flow.createPaymentLink({
+      title: 'Premium Plan',
+      amount: 149.9,
+      imageUrl: 'https://example.com/cover.png',
+      hostedCheckout: true,
+    });
+
+    expect(result.checkoutHtml).toContain('https://www.shopier.com/s/shipping/my-shop');
+    expect(result.hostedCheckoutHtml).toBe(result.checkoutHtml);
+    expect(result.fastPayHtml).toBe(result.checkoutHtml);
+  });
+
+  it('should still accept fastPay as a compatibility alias', async () => {
     const fetcher = jest.fn(async () => jsonResponse({
       id: 'product-1',
       url: 'https://www.shopier.com/123456',
@@ -118,8 +150,40 @@ describe('PAT payment link flow', () => {
       fastPay: true,
     });
 
-    expect(result.checkoutHtml).toContain('https://www.shopier.com/s/shipping/my-shop');
-    expect(result.fastPayHtml).toBe(result.checkoutHtml);
+    expect(result.hostedCheckoutHtml).toContain('shopier-hosted-checkout');
+  });
+
+  it('should create ephemeral payments and clean up their product', async () => {
+    const fetcher = jest.fn(async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      if (init?.method === 'DELETE') {
+        return new Response(null, { status: 204 });
+      }
+
+      return jsonResponse({
+        id: 'product-1',
+        url: 'https://www.shopier.com/123456',
+      });
+    }) as unknown as typeof fetch;
+    const client = new ShopierApiClient({ pat: 'pat-token', fetch: fetcher });
+    const flow = new ShopierPaymentFlow({ client });
+
+    const payment = await flow.createEphemeralPayment({
+      title: 'Premium Plan',
+      amount: 149.9,
+      imageUrl: 'https://example.com/cover.png',
+      ttlMs: 60000,
+    });
+
+    expect(payment.ephemeral).toBe(true);
+    expect(payment.productIds).toEqual(['product-1']);
+    expect(payment.expiresAt).toBeDefined();
+
+    await payment.cleanup();
+
+    expect(fetcher).toHaveBeenLastCalledWith(
+      'https://api.shopier.com/v1/products/product-1',
+      expect.objectContaining({ method: 'DELETE' })
+    );
   });
 
   it('should process order.created webhooks and delete temporary products by default', async () => {

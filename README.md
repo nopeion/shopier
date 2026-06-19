@@ -13,11 +13,12 @@ TypeScript/Node.js SDK for Shopier checkout, OSB notifications, and the PAT-base
 ## Features
 
 - Classic Shopier checkout form generation and callback verification.
-- Modern PAT checkout flow that creates Shopier products and can open checkout with fast pay HTML.
+- Modern PAT checkout flow that creates Shopier products and can open Shopier hosted checkout.
 - PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
 - OSB `res` + `hash` verification and payload normalization.
+- Diagnostics, webhook router, framework response helpers, and test fixtures for real integrations.
 - Named credential sets for multiple checkout, PAT, and OSB credentials.
 - ESM, CommonJS, and TypeScript declaration output.
 
@@ -127,7 +128,7 @@ const payment = await payments.createPaymentLink({
   currency: 'TRY',
   imageUrl: 'https://example.com/cover.png',
   orderId: 'local-order-123',
-  fastPay: true,
+  hostedCheckout: true,
   shopSlug: 'your-shop-slug',
 });
 
@@ -135,9 +136,23 @@ res.send(payment.checkoutHtml);
 // Store payment.productId with local-order-123 for webhook reconciliation.
 ```
 
-`payment.paymentUrl` is the Shopier product page. For direct checkout, send `payment.checkoutHtml` from your server so the browser posts to Shopier checkout.
+`payment.paymentUrl` is the Shopier product page. For hosted checkout, send `payment.checkoutHtml` from your server so the browser posts to Shopier checkout. `fastPay` and `fastPayHtml` remain as backward-compatible aliases, but new code should use `hostedCheckout` and `hostedCheckoutHtml`.
 
 For one-off/custom payments, create a product per payment and clean it up after the `order.created` webhook. For fixed catalog items, create the product once and reuse its checkout form.
+
+```ts
+const payment = await payments.createEphemeralPayment({
+  title: 'Premium Plan',
+  amount: 149.9,
+  imageUrl: 'https://cdn.example.com/cover.png',
+  hostedCheckout: true,
+  shopSlug: 'your-shop-slug',
+  ttlMs: 60 * 60 * 1000,
+});
+
+// Call after a failed/expired attempt, or let your webhook handler clean it up.
+await payment.cleanup();
+```
 
 If you only need the product page:
 
@@ -232,6 +247,43 @@ if (result.verified) {
 }
 ```
 
+## Diagnostics and helpers
+
+```bash
+shopier doctor
+```
+
+```ts
+import {
+  ShopierWebhookRouter,
+  createPaymentResponse,
+  handleWebhookRequest,
+  runShopierDiagnostics,
+} from '@nopeion/shopier';
+
+const diagnostics = runShopierDiagnostics({
+  require: ['pat', 'webhook', 'shopSlug'],
+  imageUrl: 'https://cdn.example.com/cover.png',
+});
+
+const router = new ShopierWebhookRouter(process.env.SHOPIER_WEBHOOK_TOKEN);
+router.on('order.created', async (event) => {
+  await fulfillOrder(event.data);
+});
+
+export async function POST(request: Request) {
+  return handleWebhookRequest(request, router);
+}
+
+return createPaymentResponse(payment);
+```
+
+Test helpers are available from `@nopeion/shopier/testing`:
+
+```ts
+import { createMockShopierFetch, createShopierWebhookFixture } from '@nopeion/shopier/testing';
+```
+
 ## Playground
 
 The nested [`playground`](./playground) repo provides a local UI for checkout, PAT order/refund calls, webhook verification, and OSB verification.
@@ -274,8 +326,10 @@ import {
   ShopierCredentialManager,
   ShopierOsbClient,
   ShopierPaymentFlow,
+  ShopierWebhookRouter,
+  buildHostedCheckoutHtml,
   ShopierWebhookVerifier,
-  buildFastPayHtml,
+  runShopierDiagnostics,
   verifyAndParseWebhook,
 } from '@nopeion/shopier';
 ```

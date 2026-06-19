@@ -30,7 +30,25 @@
             "types": "./dist/payments.d.ts",
             "import": "./dist/payments.mjs",
             "require": "./dist/payments.js"
+        },
+        "./diagnostics": {
+            "types": "./dist/diagnostics.d.ts",
+            "import": "./dist/diagnostics.mjs",
+            "require": "./dist/diagnostics.js"
+        },
+        "./frameworks": {
+            "types": "./dist/frameworks.d.ts",
+            "import": "./dist/frameworks.mjs",
+            "require": "./dist/frameworks.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "import": "./dist/testing.mjs",
+            "require": "./dist/testing.js"
         }
+    },
+    "bin": {
+        "shopier": "./dist/cli.js"
     },
     "files": [
         "dist",
@@ -41,8 +59,8 @@
         "docs"
     ],
     "scripts": {
-        "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts --format cjs,esm --dts",
-        "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts --format cjs,esm --dts --watch",
+        "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts src/diagnostics.ts src/frameworks.ts src/testing.ts src/cli.ts --format cjs,esm --dts",
+        "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts src/diagnostics.ts src/frameworks.ts src/testing.ts src/cli.ts --format cjs,esm --dts --watch",
         "lint": "tsc --noEmit",
         "test": "jest",
         "test:watch": "jest --watch",

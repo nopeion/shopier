@@ -33,6 +33,21 @@ export interface ShopierWebhookEvent<TBody = unknown> {
   raw: TBody;
 }
 
+export type ShopierWebhookHandler<TBody = unknown> = (
+  event: ShopierWebhookEvent<TBody>
+) => void | Promise<void>;
+
+export interface ShopierWebhookRouterOptions {
+  webhookToken?: string;
+  secret?: string;
+}
+
+export interface ShopierWebhookDispatchResult<TBody = unknown> {
+  event: ShopierWebhookEvent<TBody>;
+  handled: boolean;
+  handlerCount: number;
+}
+
 export function verifyWebhook(options: VerifyWebhookOptions): VerifyWebhookResult {
   const token = resolveWebhookToken(options);
   const signature = getHeader(options.headers, 'shopier-signature');
@@ -131,6 +146,55 @@ export class ShopierWebhookVerifier {
     body: string | Buffer | ArrayBuffer
   ): ShopierWebhookEvent<TBody> {
     return verifyAndParseWebhook<TBody>({ headers, body, webhookToken: this.token });
+  }
+}
+
+export class ShopierWebhookRouter {
+  private readonly verifier: ShopierWebhookVerifier;
+  private readonly handlers = new Map<string, ShopierWebhookHandler[]>();
+  private readonly anyHandlers: ShopierWebhookHandler[] = [];
+
+  constructor(options: ShopierWebhookRouterOptions | string = {}) {
+    const token = typeof options === 'string' ? options : options.webhookToken ?? options.secret;
+    this.verifier = new ShopierWebhookVerifier(token);
+  }
+
+  on<TBody = unknown>(eventType: ShopierWebhookEventType | string, handler: ShopierWebhookHandler<TBody>): this {
+    const handlers = this.handlers.get(eventType) ?? [];
+    handlers.push(handler as ShopierWebhookHandler);
+    this.handlers.set(eventType, handlers);
+    return this;
+  }
+
+  onAny<TBody = unknown>(handler: ShopierWebhookHandler<TBody>): this {
+    this.anyHandlers.push(handler as ShopierWebhookHandler);
+    return this;
+  }
+
+  async dispatch<TBody = unknown>(
+    headers: WebhookHeadersInput,
+    body: string | Buffer | ArrayBuffer
+  ): Promise<ShopierWebhookDispatchResult<TBody>> {
+    const event = this.verifier.parse<TBody>(headers, body);
+    const eventHandlers = this.handlers.get(event.type) ?? [];
+    const handlers = [...eventHandlers, ...this.anyHandlers];
+
+    for (const handler of handlers) {
+      await handler(event);
+    }
+
+    return {
+      event,
+      handled: handlers.length > 0,
+      handlerCount: handlers.length,
+    };
+  }
+
+  handle<TBody = unknown>(
+    headers: WebhookHeadersInput,
+    body: string | Buffer | ArrayBuffer
+  ): Promise<ShopierWebhookDispatchResult<TBody>> {
+    return this.dispatch<TBody>(headers, body);
   }
 }
 
