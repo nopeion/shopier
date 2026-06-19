@@ -7,13 +7,15 @@ export interface CallbackBody {
   /** Platform order ID */
   platform_order_id: string;
   /** Shopier payment ID */
-  payment_id: string;
+  payment_id?: string;
   /** Number of installments */
-  installment: string;
+  installment?: string;
   /** Payment status */
-  status: 'success' | 'failed';
+  status: 'success' | 'failed' | string;
   /** Signature for verification */
   signature: string;
+  /** Additional callback fields returned by Shopier */
+  [key: string]: unknown;
 }
 
 /**
@@ -25,11 +27,13 @@ export interface CallbackResult {
   /** Order ID */
   orderId: string;
   /** Shopier payment ID */
-  paymentId: string;
+  paymentId?: string;
   /** Number of installments */
   installment: number;
   /** Original platform order ID */
   platformOrderId: string;
   /** Payment status */
-  status: 'success' | 'failed';
+  status: 'success' | 'failed' | string;
+  /** Raw callback body */
+  raw: CallbackBody;
 }

@@ -1,6 +1,6 @@
 {
     "name": "@nopeion/shopier",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "TypeScript SDK for Shopier Payment Integration",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
@@ -10,30 +10,79 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
+        },
+        "./osb": {
+            "types": "./dist/osb.d.ts",
+            "import": "./dist/osb.mjs",
+            "require": "./dist/osb.js"
+        },
+        "./api": {
+            "types": "./dist/api.d.ts",
+            "import": "./dist/api.mjs",
+            "require": "./dist/api.js"
+        },
+        "./webhooks": {
+            "types": "./dist/webhooks.d.ts",
+            "import": "./dist/webhooks.mjs",
+            "require": "./dist/webhooks.js"
+        },
+        "./payments": {
+            "types": "./dist/payments.d.ts",
+            "import": "./dist/payments.mjs",
+            "require": "./dist/payments.js"
+        },
+        "./diagnostics": {
+            "types": "./dist/diagnostics.d.ts",
+            "import": "./dist/diagnostics.mjs",
+            "require": "./dist/diagnostics.js"
+        },
+        "./frameworks": {
+            "types": "./dist/frameworks.d.ts",
+            "import": "./dist/frameworks.mjs",
+            "require": "./dist/frameworks.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "import": "./dist/testing.mjs",
+            "require": "./dist/testing.js"
         }
+    },
+    "bin": {
+        "shopier": "dist/cli.js"
     },
     "files": [
         "dist",
         "README.md",
-        "LICENSE"
+        "LICENSE",
+        "CHANGELOG.md",
+        "SECURITY.md",
+        "docs"
     ],
     "scripts": {
-        "build": "tsup src/index.ts --format cjs,esm --dts",
-        "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-        "lint": "eslint . --ext .ts",
+        "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts src/diagnostics.ts src/frameworks.ts src/testing.ts src/cli.ts --format cjs,esm --dts --clean",
+        "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts src/diagnostics.ts src/frameworks.ts src/testing.ts src/cli.ts --format cjs,esm --dts --watch",
+        "lint": "tsc --noEmit",
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "prepublishOnly": "npm run build && npm test"
+        "prepublishOnly": "npm run lint && npm run build && npm test"
     },
     "devDependencies": {
-        "@types/jest": "^29.5.0",
+        "@types/jest": "^30.0.0",
         "@types/node": "^20.0.0",
         "fast-check": "^3.15.0",
-        "jest": "^29.7.0",
-        "ts-jest": "^29.1.0",
+        "jest": "^30.4.2",
+        "ts-jest": "^29.4.11",
         "tsup": "^8.0.0",
         "typescript": "^5.0.0"
+    },
+    "overrides": {
+        "handlebars": "4.7.9",
+        "rollup": "4.62.1",
+        "picomatch": "4.0.4",
+        "anymatch": {
+            "picomatch": "2.3.2"
+        }
     },
     "author": "nopeion",
     "license": "MIT",
@@ -54,6 +103,6 @@
     },
     "homepage": "https://github.com/nopeion/shopier#readme",
     "engines": {
-        "node": ">=16.0.0"
+        "node": ">=18.0.0"
     }
 }

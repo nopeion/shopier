@@ -7,75 +7,166 @@
  * @packageDocumentation
  */
 
-// Main Shopier class
-export { Shopier } from './core/shopier';
-export { ShopierWebhook } from './webhook';
+export { ShopierOsbClient, verifyOsb, parseOsbPayload, handleOsb } from './osb';
+export { ShopierApiClient } from './api';
+export { verifyWebhook, parseWebhookEvent, verifyAndParseWebhook, ShopierWebhookVerifier, ShopierWebhookRouter } from './webhooks';
+export { ShopierPaymentFlow, buildHostedCheckoutHtml, buildFastPayHtml } from './payments';
+export { runShopierDiagnostics, formatShopierDiagnostics } from './diagnostics';
+export {
+  createHtmlResponse,
+  createJsonResponse,
+  createRedirectResponse,
+  createPaymentResponse,
+  sendHtml,
+  sendJson,
+  handleWebhookRequest,
+} from './frameworks';
+export {
+  createMockShopierFetch,
+  createMockProduct,
+  createShopierWebhookFixture,
+  createOsbFixture,
+} from './testing';
 
 // Core utilities
 export {
   generateSignature,
   verifySignature,
-  generatePaymentSignature,
-  generateCallbackSignature,
 } from './core/signature';
 
 export {
-  validateConfig,
-  validateBuyer,
-  validateAmount,
-  validateEmail,
-  validatePhone,
-  validateInstallment,
-} from './core/validator';
+  resolveOsbCredentials,
+  resolvePatCredentials,
+} from './core/credentials';
 
-export {
-  ConfigManager,
-  resolveConfig,
-  resolveApiKey,
-  resolveApiSecret,
-} from './core/config';
-
-export type { ResolvedConfig } from './core/config';
+export type {
+  ShopierOsbCredentials,
+  ShopierPatCredentials,
+  ResolveOsbCredentialsOptions,
+  ResolvePatCredentialsOptions,
+} from './core/credentials';
 
 // Types
 export type {
-  BuyerInfo,
-  BillingAddress,
-  ShippingAddress,
-  CallbackBody,
-  CallbackResult,
-  ShopierConfig,
-  FormData,
-  FormDataResult,
-  PaymentOptions,
-  PaymentResult,
-} from './types';
+  OsbCredentials,
+  OsbClientConfig,
+  VerifyOsbOptions,
+  ParseOsbPayloadOptions,
+  OsbCurrency,
+  OsbPayload,
+  VerifyOsbResult,
+  HandleOsbResult,
+} from './osb';
 
-// Enums
-export {
-  Currency,
-  Language,
-  ProductType,
-  PlatformType,
-  WebsiteIndex,
-} from './enums';
+export type {
+  ShopierApiConfig,
+  ShopierApiRequestOptions,
+  ShopierApiErrorBody,
+  ShopierBalance,
+  ShopierTransaction,
+  ShopierCategory,
+  ShopierCategoryInput,
+  ShopierCategoryUpdateInput,
+  ShopierDiscountCode,
+  ShopierCreateDiscountCodeInput,
+  ShopierUpdateDiscountCodeInput,
+  ShopierAutomaticDiscount,
+  ShopierCreateAutomaticDiscountInput,
+  ShopierUpdateAutomaticDiscountInput,
+  ShopierOrder,
+  ShopierListOrdersParams,
+  ShopierUpdateOrderInput,
+  ShopierFulfillmentInput,
+  ShopierPayout,
+  ShopierProduct,
+  ShopierCreateProductInput,
+  ShopierUpdateProductInput,
+  ShopierListProductsParams,
+  ShopierRefund,
+  ShopierCreateRefundInput,
+  ShopierListRefundsParams,
+  ShopierSelection,
+  ShopierCreateSelectionInput,
+  ShopierUpdateSelectionInput,
+  ShopierShipping,
+  ShopierCreateShippingInput,
+  ShopierListShippingsParams,
+  ShopierShopOwner,
+  ShopierShopSettings,
+  ShopierUpdateShopSettingsInput,
+  ShopierVariation,
+  ShopierCreateVariationInput,
+  ShopierUpdateVariationInput,
+  ShopierWebhookSubscription,
+  ShopierCreateWebhookInput,
+  ShopierWebhookEventType,
+  ShopierCurrencyCode,
+  ShopierProductType,
+  ShopierShippingPayer,
+  ShopierShippingCompany,
+} from './api';
+
+export type {
+  VerifyWebhookOptions,
+  ShopierWebhookEvent,
+  VerifyWebhookResult,
+  ShopierWebhookHeaders,
+  ShopierWebhookHandler,
+  ShopierWebhookRouterOptions,
+  ShopierWebhookDispatchResult,
+} from './webhooks';
+
+export type {
+  ShopierPaymentFlowConfig,
+  CreatePaymentLinkOptions,
+  CreateEphemeralPaymentOptions,
+  PaymentLinkResult,
+  EphemeralPaymentResult,
+  HandlePaymentWebhookOptions,
+  PaymentCompletedInfo,
+  HandlePaymentWebhookResult,
+  PaymentCompletedHandler,
+  BuildHostedCheckoutHtmlOptions,
+  BuildFastPayHtmlOptions,
+} from './payments';
+
+export type {
+  ShopierDiagnosticStatus,
+  ShopierDiagnosticRequirement,
+  ShopierDiagnosticCheck,
+  ShopierDiagnosticsOptions,
+  ShopierDiagnosticsResult,
+} from './diagnostics';
+
+export type {
+  NodeLikeResponse,
+  WebhookRequestLike,
+} from './frameworks';
+
+export type {
+  MockShopierFetchCall,
+  MockShopierFetchResponse,
+  MockShopierFetch,
+  ShopierWebhookFixtureOptions,
+  ShopierWebhookFixture,
+  OsbFixtureOptions,
+  OsbFixture,
+} from './testing';
 
 // Errors
 export {
   ShopierError,
-  InvalidApiKeyError,
-  InvalidApiSecretError,
   ValidationError,
   SignatureValidationError,
+  ShopierApiUnsupportedOperationError,
+  ShopierApiRequestError,
+  ShopierUnauthorizedPatError,
+  ShopierInvalidMediaUrlError,
+  ShopierRateLimitError,
+  ShopierHostedCheckoutListingError,
+  ShopierFetchUnavailableError,
+  createShopierApiError,
 } from './errors';
 
-// Renderers
-export {
-  renderHiddenInputs,
-  renderAutoSubmitHTML,
-  renderButton,
-  getFormDataObject,
-} from './renderers';
-
 // Utilities
-export { escapeHtml, generateRandomNumber } from './utils';
+export { escapeHtml } from './utils';

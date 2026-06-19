@@ -8,6 +8,10 @@ export interface ShopierConfig {
   apiKey?: string;
   /** API secret (falls back to SHOPIER_API_SECRET env var) */
   apiSecret?: string;
+  /** Named checkout credential set, e.g. "primary" maps to SHOPIER_CHECKOUT_PRIMARY_* */
+  credentialName?: string;
+  /** Custom env prefix, e.g. "SHOPIER_CHECKOUT_PRIMARY" maps to *_API_KEY and *_API_SECRET */
+  envPrefix?: string;
   /** Language for payment page (default: Language.TR) */
   language?: Language;
   /** Module version (default: '1.0.4') */

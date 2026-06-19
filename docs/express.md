@@ -1,22 +1,24 @@
-const express = require('express');
-const {
-  ShopierApiClient,
-  ShopierPaymentFlow,
-  verifyAndParseWebhook,
-} = require('@nopeion/shopier');
+# Express
+
+Run Shopier calls on the server and return hosted checkout HTML to the browser.
+
+```ts
+import express from 'express';
+import { ShopierApiClient, ShopierPaymentFlow, verifyAndParseWebhook } from '@nopeion/shopier';
 
 const app = express();
 
-app.post('/checkout', express.json(), async (req, res, next) => {
+app.post('/checkout', express.urlencoded({ extended: false }), async (req, res, next) => {
   try {
     const client = new ShopierApiClient({ pat: process.env.SHOPIER_PAT });
     const payments = new ShopierPaymentFlow({ client });
+
     const payment = await payments.createPaymentLink({
-      title: req.body.title ?? 'Premium Package',
-      amount: req.body.amount ?? '149.00',
+      title: 'Premium Package',
+      amount: '149.00',
       currency: 'TRY',
-      imageUrl: process.env.SHOPIER_PRODUCT_IMAGE_URL,
-      orderId: req.body.orderId ?? `order-${Date.now()}`,
+      imageUrl: 'https://cdn.example.com/cover.png',
+      orderId: `order-${Date.now()}`,
       hostedCheckout: true,
       shopSlug: process.env.SHOPIER_SHOP_SLUG,
     });
@@ -35,14 +37,9 @@ app.post('/shopier/webhook', express.raw({ type: '*/*' }), async (req, res, next
       body: req.body,
     });
 
-    // Fulfill idempotently using event.id or the Shopier order id.
-    console.log('Verified webhook:', event.type);
-    res.status(200).send('ok');
+    res.json({ ok: true, type: event.type });
   } catch (error) {
     next(error);
   }
 });
-
-app.listen(3000, () => {
-  console.log('Express app running on http://localhost:3000');
-});
+```

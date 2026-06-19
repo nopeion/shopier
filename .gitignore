@@ -26,5 +26,5 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# TypeDoc
-docs/
+# TypeDoc generated output
+typedoc/
