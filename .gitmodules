@@ -1,0 +1,4 @@
+[submodule "playground"]
+	path = playground
+	url = https://github.com/nopeion/shopier-playground.git
+	branch = main
