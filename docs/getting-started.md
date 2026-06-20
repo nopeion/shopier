@@ -100,9 +100,18 @@ Use the companion [shopier-playground](https://github.com/nopeion/shopier-playgr
 git clone https://github.com/nopeion/shopier-playground.git
 cd shopier-playground
 npm install
+npm run dev
+```
+
+Then open `http://localhost:3115` while developing.
+
+For a production-style run:
+
+```bash
+npm run build
 npm start
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000` unless `PORT` is set.
 
 If you are upgrading from a classic checkout integration, read the [v2 migration guide](./migration-v2.md).

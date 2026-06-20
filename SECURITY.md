@@ -17,7 +17,8 @@ You should receive an initial response within 72 hours. Valid reports will be ha
 
 | Version | Supported |
 | ------- | --------- |
-| 1.x     | Yes       |
+| 2.x     | Yes       |
+| 1.x     | No        |
 | < 1.0   | No        |
 
 ## Handling Shopier Credentials

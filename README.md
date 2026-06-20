@@ -257,10 +257,19 @@ git clone https://github.com/nopeion/shopier-playground.git
 cd shopier-playground
 npm install
 copy .env.example .env
+npm run dev
+```
+
+Open `http://localhost:3115` while developing.
+
+For a production-style run:
+
+```bash
+npm run build
 npm start
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` unless `PORT` is set.
 
 See the [v2 migration guide](./docs/migration-v2.md) before upgrading from the classic checkout API.
 
