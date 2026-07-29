@@ -9,6 +9,7 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 - Automatic retries in `ShopierApiClient` for transient failures: HTTP 408, 429, 500, 502, 503, 504, timeouts, and network errors. Backoff is exponential with jitter and honours a `Retry-After` header when Shopier sends one.
 - `retry` options on both the client config and individual requests: `maxRetries`, `baseDelayMs`, `maxDelayMs`, `retryNonIdempotent`, `shouldRetry`, and `onRetry`. Exported as `ShopierRetryOptions`, `ShopierRetryContext`, and `ShopierFailureReason`.
 - `error.details.reason` on API errors, distinguishing `http`, `timeout`, `aborted`, and `network` failures.
+- Idempotency key support: every `create` method (`refunds.create`, `products.create`, `categories.create`, and so on, plus the `createRefund`/`createProduct`/`createWebhook` convenience methods) accepts a second `{ idempotencyKey }` argument, sent as the `Idempotency-Key` header. Supplying one also makes that POST eligible for retry, without needing `retryNonIdempotent`. `createIdempotencyKey()` generates one. Exported as `ShopierCreateOptions`.
 
 ### Fixed
 

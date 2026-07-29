@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   createShopierApiError,
   ShopierError,
@@ -131,6 +132,12 @@ export interface ShopierApiRequestOptions {
   signal?: AbortSignal;
   /** Per-request retry overrides, merged over the client-level options. */
   retry?: ShopierRetryOptions;
+  /**
+   * Sent as the `Idempotency-Key` header. Supplying one on a POST also makes
+   * that request eligible for retry, since a repeat with the same key is
+   * safe by construction. See `ShopierCreateOptions`.
+   */
+  idempotencyKey?: string;
 }
 
 export interface ShopierApiErrorBody {
@@ -571,9 +578,19 @@ export interface ShopierBalanceApi {
   };
 }
 
+/**
+ * Options for a create call. `idempotencyKey` marks the call safe to retry:
+ * pass the same key on a repeat and Shopier recognizes it as the same
+ * request instead of creating a second one. Without a key, POST is not
+ * retried on failure. See `createIdempotencyKey()`.
+ */
+export interface ShopierCreateOptions {
+  idempotencyKey?: string;
+}
+
 export interface ShopierCrudApi<T, CreateInput, UpdateInput, ListParams = ShopierListParams> {
   list: (params?: ListParams) => Promise<T[]>;
-  create: (input: CreateInput) => Promise<T>;
+  create: (input: CreateInput, options?: ShopierCreateOptions) => Promise<T>;
   get: (id: string) => Promise<T>;
   update: (id: string, input: UpdateInput) => Promise<T>;
   delete: (id: string) => Promise<void>;
@@ -617,13 +634,13 @@ export interface ShopierProductsApi extends ShopierCrudApi<
 
 export interface ShopierRefundsApi {
   list: (params?: ShopierListRefundsParams) => Promise<ShopierRefund[]>;
-  create: (input: ShopierCreateRefundInput) => Promise<ShopierRefund>;
+  create: (input: ShopierCreateRefundInput, options?: ShopierCreateOptions) => Promise<ShopierRefund>;
   get: (refundId: string) => Promise<ShopierRefund>;
 }
 
 export interface ShopierShippingsApi {
   list: (params?: ShopierListShippingsParams) => Promise<ShopierShipping[]>;
-  create: (input: ShopierCreateShippingInput) => Promise<ShopierShipping>;
+  create: (input: ShopierCreateShippingInput, options?: ShopierCreateOptions) => Promise<ShopierShipping>;
   get: (code: string) => Promise<ShopierShipping>;
   delete: (code: string) => Promise<void>;
 }
@@ -636,7 +653,7 @@ export interface ShopierShopApi {
 
 export interface ShopierWebhooksApi {
   list: (params?: ShopierListParams) => Promise<ShopierWebhookSubscription[]>;
-  create: (input: ShopierCreateWebhookInput) => Promise<ShopierWebhookSubscription>;
+  create: (input: ShopierCreateWebhookInput, options?: ShopierCreateOptions) => Promise<ShopierWebhookSubscription>;
   delete: (webhookId: string) => Promise<void>;
 }
 
@@ -690,7 +707,11 @@ export class ShopierApiClient {
 
     this.categories = {
       list: (params) => this.request<ShopierCategory[]>('/categories', { query: params }),
-      create: (input) => this.request<ShopierCategory>('/categories', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierCategory>('/categories', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       get: (id) => this.request<ShopierCategory>(`/categories/${pathSegment(id)}`),
       update: (id, input) => this.request<ShopierCategory>(`/categories/${pathSegment(id)}`, { method: 'PUT', body: input }),
       delete: async (id) => {
@@ -701,7 +722,11 @@ export class ShopierApiClient {
     this.discounts = {
       codes: {
         list: (params) => this.request<ShopierDiscountCode[]>('/discounts/codes', { query: params }),
-        create: (input) => this.request<ShopierDiscountCode>('/discounts/codes', { method: 'POST', body: input }),
+        create: (input, options) => this.request<ShopierDiscountCode>('/discounts/codes', {
+          method: 'POST',
+          body: input,
+          idempotencyKey: options?.idempotencyKey,
+        }),
         get: (id) => this.request<ShopierDiscountCode>(`/discounts/codes/${pathSegment(id)}`),
         update: (id, input) => this.request<ShopierDiscountCode>(`/discounts/codes/${pathSegment(id)}`, { method: 'PUT', body: input }),
         delete: async (id) => {
@@ -710,7 +735,11 @@ export class ShopierApiClient {
       },
       automatic: {
         list: (params) => this.request<ShopierAutomaticDiscount[]>('/discounts/automatic', { query: params }),
-        create: (input) => this.request<ShopierAutomaticDiscount>('/discounts/automatic', { method: 'POST', body: input }),
+        create: (input, options) => this.request<ShopierAutomaticDiscount>('/discounts/automatic', {
+          method: 'POST',
+          body: input,
+          idempotencyKey: options?.idempotencyKey,
+        }),
         get: (id) => this.request<ShopierAutomaticDiscount>(`/discounts/automatic/${pathSegment(id)}`),
         update: (id, input) => this.request<ShopierAutomaticDiscount>(`/discounts/automatic/${pathSegment(id)}`, { method: 'PUT', body: input }),
         delete: async (id) => {
@@ -743,7 +772,11 @@ export class ShopierApiClient {
 
     this.products = {
       list: (params) => this.request<ShopierProduct[]>('/products', { query: params }),
-      create: (input) => this.request<ShopierProduct>('/products', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierProduct>('/products', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       get: (id) => this.request<ShopierProduct>(`/products/${pathSegment(id)}`),
       update: (id, input) => this.request<ShopierProduct>(`/products/${pathSegment(id)}`, { method: 'PUT', body: input }),
       delete: async (id) => {
@@ -753,13 +786,21 @@ export class ShopierApiClient {
 
     this.refunds = {
       list: (params) => this.request<ShopierRefund[]>('/refunds', { query: params }),
-      create: (input) => this.request<ShopierRefund>('/refunds', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierRefund>('/refunds', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       get: (refundId) => this.request<ShopierRefund>(`/refunds/${pathSegment(refundId)}`),
     };
 
     this.selections = {
       list: (params) => this.request<ShopierSelection[]>('/selections', { query: params }),
-      create: (input) => this.request<ShopierSelection>('/selections', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierSelection>('/selections', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       get: (id) => this.request<ShopierSelection>(`/selections/${pathSegment(id)}`),
       update: (id, input) => this.request<ShopierSelection>(`/selections/${pathSegment(id)}`, { method: 'PUT', body: input }),
       delete: async (id) => {
@@ -769,7 +810,11 @@ export class ShopierApiClient {
 
     this.shippings = {
       list: (params) => this.request<ShopierShipping[]>('/shippings', { query: params }),
-      create: (input) => this.request<ShopierShipping>('/shippings', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierShipping>('/shippings', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       get: (code) => this.request<ShopierShipping>(`/shippings/${pathSegment(code)}`),
       delete: async (code) => {
         await this.request<void>(`/shippings/${pathSegment(code)}`, { method: 'DELETE' });
@@ -784,7 +829,11 @@ export class ShopierApiClient {
 
     this.variations = {
       list: (params) => this.request<ShopierVariation[]>('/variations', { query: params }),
-      create: (input) => this.request<ShopierVariation>('/variations', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierVariation>('/variations', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       get: (id) => this.request<ShopierVariation>(`/variations/${pathSegment(id)}`),
       update: (id, input) => this.request<ShopierVariation>(`/variations/${pathSegment(id)}`, { method: 'PUT', body: input }),
       delete: async (id) => {
@@ -794,7 +843,11 @@ export class ShopierApiClient {
 
     this.webhooks = {
       list: (params) => this.request<ShopierWebhookSubscription[]>('/webhooks', { query: params }),
-      create: (input) => this.request<ShopierWebhookSubscription>('/webhooks', { method: 'POST', body: input }),
+      create: (input, options) => this.request<ShopierWebhookSubscription>('/webhooks', {
+        method: 'POST',
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+      }),
       delete: async (webhookId) => {
         await this.request<void>(`/webhooks/${pathSegment(webhookId)}`, { method: 'DELETE' });
       },
@@ -821,8 +874,8 @@ export class ShopierApiClient {
     return this.products.list(params);
   }
 
-  createProduct(input: ShopierCreateProductInput): Promise<ShopierProduct> {
-    return this.products.create(input);
+  createProduct(input: ShopierCreateProductInput, options?: ShopierCreateOptions): Promise<ShopierProduct> {
+    return this.products.create(input, options);
   }
 
   getProduct(productId: string): Promise<ShopierProduct> {
@@ -833,16 +886,16 @@ export class ShopierApiClient {
     return this.products.delete(productId);
   }
 
-  createRefund(input: ShopierCreateRefundInput): Promise<ShopierRefund> {
-    return this.refunds.create(input);
+  createRefund(input: ShopierCreateRefundInput, options?: ShopierCreateOptions): Promise<ShopierRefund> {
+    return this.refunds.create(input, options);
   }
 
   listRefunds(params?: ShopierListRefundsParams): Promise<ShopierRefund[]> {
     return this.refunds.list(params);
   }
 
-  createWebhook(input: ShopierCreateWebhookInput): Promise<ShopierWebhookSubscription> {
-    return this.webhooks.create(input);
+  createWebhook(input: ShopierCreateWebhookInput, options?: ShopierCreateOptions): Promise<ShopierWebhookSubscription> {
+    return this.webhooks.create(input, options);
   }
 
   async request<T>(path: string, options: ShopierApiRequestOptions = {}): Promise<T> {
@@ -860,6 +913,10 @@ export class ShopierApiClient {
 
     if (options.body !== undefined && headers['Content-Type'] === undefined) {
       headers['Content-Type'] = 'application/json';
+    }
+
+    if (options.idempotencyKey && headers['Idempotency-Key'] === undefined) {
+      headers['Idempotency-Key'] = options.idempotencyKey;
     }
 
     const body = options.body === undefined ? undefined : JSON.stringify(options.body);
@@ -898,7 +955,12 @@ export class ShopierApiClient {
           reason,
           error,
           delayMs,
-          retryable: isRetryable(reason, status, method, retry.retryNonIdempotent === true),
+          retryable: isRetryable(
+            reason,
+            status,
+            method,
+            retry.retryNonIdempotent === true || Boolean(options.idempotencyKey)
+          ),
         };
 
         if (!(retry.shouldRetry ? retry.shouldRetry(context) : context.retryable)) {
@@ -971,19 +1033,21 @@ export class ShopierApiClient {
  * 429 is retried for every method: a rate limited request was rejected before
  * it was processed, so repeating it cannot duplicate an effect. Every other
  * retryable failure is gated on idempotency, because a POST that timed out or
- * returned a 500 may still have been applied on Shopier's side.
+ * returned a 500 may still have been applied on Shopier's side. `treatAsIdempotent`
+ * lifts that gate, either because the caller opted into `retryNonIdempotent` or
+ * because the request carried an `idempotencyKey` that makes a repeat safe.
  */
 function isRetryable(
   reason: ShopierFailureReason,
   status: number | undefined,
   method: ShopierHttpMethod,
-  retryNonIdempotent: boolean
+  treatAsIdempotent: boolean
 ): boolean {
   if (status === 429) {
     return true;
   }
 
-  if (!IDEMPOTENT_METHODS.includes(method) && !retryNonIdempotent) {
+  if (!IDEMPOTENT_METHODS.includes(method) && !treatAsIdempotent) {
     return false;
   }
 
@@ -1055,6 +1119,15 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 
     signal?.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+/**
+ * Generates a random key suitable for `idempotencyKey` / `ShopierCreateOptions`.
+ * Call it once per logical operation and reuse the same value across retries
+ * of that operation; a fresh key per attempt defeats the point.
+ */
+export function createIdempotencyKey(): string {
+  return randomUUID();
 }
 
 function resolveAccessToken(config: ShopierApiConfig): string | undefined {

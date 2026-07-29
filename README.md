@@ -204,6 +204,21 @@ await client.request('/products', {
 });
 ```
 
+The safer way to make a specific POST retryable is an idempotency key. Pass one to any `create` call and Shopier recognizes a repeat with the same key as the same request instead of a new one, so that call is retried automatically without needing `retryNonIdempotent`:
+
+```ts
+import { createIdempotencyKey } from '@nopeion/shopier';
+
+const idempotencyKey = createIdempotencyKey();
+
+await client.refunds.create(
+  { orderId: 'order-1', amount: '10.00' },
+  { idempotencyKey }
+);
+```
+
+Generate the key once per logical operation (for example, once per refund attempt on your side) and reuse it across your own retries too, not just the client's internal ones — a fresh key per attempt defeats the point.
+
 `shouldRetry` replaces the default decision, and receives the default in `context.retryable` so you can build on it:
 
 ```ts

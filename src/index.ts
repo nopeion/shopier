@@ -8,7 +8,7 @@
  */
 
 export { ShopierOsbClient, verifyOsb, parseOsbPayload, handleOsb } from './osb';
-export { ShopierApiClient } from './api';
+export { ShopierApiClient, createIdempotencyKey } from './api';
 export { verifyWebhook, parseWebhookEvent, verifyAndParseWebhook, ShopierWebhookVerifier, ShopierWebhookRouter } from './webhooks';
 export { ShopierPaymentFlow, buildHostedCheckoutHtml, buildFastPayHtml } from './payments';
 export { runShopierDiagnostics, formatShopierDiagnostics } from './diagnostics';
@@ -65,6 +65,7 @@ export type {
   ShopierRetryOptions,
   ShopierRetryContext,
   ShopierFailureReason,
+  ShopierCreateOptions,
   ShopierBalance,
   ShopierTransaction,
   ShopierCategory,
