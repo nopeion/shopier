@@ -706,7 +706,7 @@ export class ShopierApiClient {
     };
 
     this.variations = {
-      list: () => this.request<ShopierVariation[]>('/variations'),
+      list: (params) => this.request<ShopierVariation[]>('/variations', { query: params }),
       create: (input) => this.request<ShopierVariation>('/variations', { method: 'POST', body: input }),
       get: (id) => this.request<ShopierVariation>(`/variations/${pathSegment(id)}`),
       update: (id, input) => this.request<ShopierVariation>(`/variations/${pathSegment(id)}`, { method: 'PUT', body: input }),

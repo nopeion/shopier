@@ -4,7 +4,17 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 
 ## [Unreleased]
 
-No unreleased changes.
+### Fixed
+
+- `client.variations.list()` now forwards its pagination parameters. The method accepted `limit`, `page`, and `sort` in its type signature but silently discarded them.
+
+### Changed
+
+- `npm test` now runs with coverage and enforces the thresholds, so a coverage regression fails CI instead of passing unnoticed.
+
+### Internal
+
+- Full test coverage for the PAT REST API client: every documented endpoint, credential and base URL resolution, query serialization, path parameter encoding, response decoding, error mapping, timeouts, and cancellation.
 
 ## [2.0.0] - 2026-06-19
 

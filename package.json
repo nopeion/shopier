@@ -62,7 +62,7 @@
         "build": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts src/diagnostics.ts src/frameworks.ts src/testing.ts src/cli.ts --format cjs,esm --dts --clean",
         "dev": "tsup src/index.ts src/osb.ts src/api.ts src/webhooks.ts src/payments.ts src/diagnostics.ts src/frameworks.ts src/testing.ts src/cli.ts --format cjs,esm --dts --watch",
         "lint": "tsc --noEmit",
-        "test": "jest",
+        "test": "jest --coverage",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
         "prepublishOnly": "npm run lint && npm run build && npm test"
