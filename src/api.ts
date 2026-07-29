@@ -8,6 +8,22 @@ import {
 
 const DEFAULT_BASE_URL = 'https://api.shopier.com/v1';
 const DEFAULT_TIMEOUT_MS = 15000;
+const DEFAULT_MAX_RETRIES = 2;
+const DEFAULT_RETRY_BASE_DELAY_MS = 500;
+const DEFAULT_RETRY_MAX_DELAY_MS = 8000;
+
+/**
+ * Methods that HTTP defines as idempotent. Repeating one of these cannot
+ * create a second resource or move money twice, so they are safe to retry
+ * after a transport failure or a server error.
+ */
+const IDEMPOTENT_METHODS: readonly string[] = ['GET', 'PUT', 'DELETE'];
+
+/**
+ * Status codes worth retrying for an idempotent request. 429 is handled
+ * separately because it is safe for every method.
+ */
+const RETRYABLE_STATUSES: readonly number[] = [408, 500, 502, 503, 504];
 
 export type ShopierHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 export type ShopierCurrencyCode = 'TRY' | 'USD' | 'EUR';
@@ -41,13 +57,70 @@ export type ShopierWebhookEventType =
 type QueryPrimitive = string | number | boolean | Date | null | undefined;
 export type ShopierQueryParams = object;
 
+/**
+ * Why a request failed, as recorded on `error.details.reason`.
+ *
+ * - `http` - the API answered with a non-2xx status.
+ * - `timeout` - `timeoutMs` elapsed before the response arrived.
+ * - `aborted` - the caller's own `AbortSignal` fired. Never retried.
+ * - `network` - the fetch call itself rejected (DNS, TLS, socket).
+ */
+export type ShopierFailureReason = 'http' | 'timeout' | 'aborted' | 'network';
+
+export interface ShopierRetryContext {
+  /** 1-based number of the attempt that just failed. */
+  attempt: number;
+  maxRetries: number;
+  method: ShopierHttpMethod;
+  path: string;
+  /** HTTP status, when the failure came from a response rather than the transport. */
+  status?: number;
+  reason: ShopierFailureReason;
+  error: ShopierError;
+  /** The delay the client would wait before the next attempt, in milliseconds. */
+  delayMs: number;
+  /** The decision the default policy reached, so a custom `shouldRetry` can build on it. */
+  retryable: boolean;
+}
+
+export interface ShopierRetryOptions {
+  /** Retries after the first attempt. Defaults to 2. Set to 0 to disable retrying. */
+  maxRetries?: number;
+  /** First backoff delay, doubled on each subsequent attempt. Defaults to 500ms. */
+  baseDelayMs?: number;
+  /**
+   * Upper bound for any single wait, including a server-sent `Retry-After`.
+   * Defaults to 8000ms. Raise it if your rate limit window is longer.
+   */
+  maxDelayMs?: number;
+  /**
+   * Allow retrying POST after a server error or transport failure.
+   *
+   * Off by default, and deliberately so: a POST that failed may still have
+   * been processed, so retrying `refunds.create` or `products.create` can
+   * refund twice or create a duplicate. Only enable this when you know the
+   * endpoint you are calling is safe to repeat.
+   */
+  retryNonIdempotent?: boolean;
+  /**
+   * Replaces the default decision. The attempt budget and caller cancellation
+   * are still enforced first, so this is only consulted for failures that
+   * still have retries left.
+   */
+  shouldRetry?: (context: ShopierRetryContext) => boolean;
+  /** Called before each wait. Useful for logging and metrics. */
+  onRetry?: (context: ShopierRetryContext) => void;
+}
+
 export interface ShopierApiConfig {
   personalAccessToken?: string;
   pat?: string;
   accessToken?: string;
   baseUrl?: string;
   fetch?: typeof fetch;
+  /** Timeout for a single attempt, not for the retried sequence. Defaults to 15000ms. */
   timeoutMs?: number;
+  retry?: ShopierRetryOptions;
 }
 
 export interface ShopierApiRequestOptions {
@@ -56,6 +129,8 @@ export interface ShopierApiRequestOptions {
   body?: unknown;
   query?: ShopierQueryParams;
   signal?: AbortSignal;
+  /** Per-request retry overrides, merged over the client-level options. */
+  retry?: ShopierRetryOptions;
 }
 
 export interface ShopierApiErrorBody {
@@ -588,6 +663,7 @@ export class ShopierApiClient {
 
   private readonly accessToken: string;
   private readonly fetcher?: typeof fetch;
+  private readonly retry: ShopierRetryOptions;
 
   constructor(config: ShopierApiConfig) {
     const accessToken = resolveAccessToken(config);
@@ -602,6 +678,7 @@ export class ShopierApiClient {
     this.baseUrl = normalizeBaseUrl(config.baseUrl ?? DEFAULT_BASE_URL);
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.fetcher = config.fetch ?? globalThis.fetch;
+    this.retry = { ...config.retry };
 
     this.balance = {
       get: () => this.request<ShopierBalance>('/balance'),
@@ -773,7 +850,7 @@ export class ShopierApiClient {
       throw new ShopierFetchUnavailableError(undefined, { runtime: 'fetch_missing' });
     }
 
-    const { signal, cleanup } = createRequestSignal(this.timeoutMs, options.signal);
+    const method = options.method ?? 'GET';
     const url = buildUrl(this.baseUrl, path, options.query);
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.accessToken}`,
@@ -785,43 +862,199 @@ export class ShopierApiClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    try {
-      const response = await this.fetcher(url, {
-        method: options.method ?? 'GET',
-        headers,
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
-        signal,
-      });
+    const body = options.body === undefined ? undefined : JSON.stringify(options.body);
+    const retry: ShopierRetryOptions = { ...this.retry, ...options.retry };
+    const maxRetries = Math.max(0, retry.maxRetries ?? DEFAULT_MAX_RETRIES);
+    const baseDelayMs = retry.baseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS;
+    const maxDelayMs = retry.maxDelayMs ?? DEFAULT_RETRY_MAX_DELAY_MS;
 
-      const body = await readResponseBody(response);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.attempt<T>(url, method, headers, body, options.signal);
+      } catch (error) {
+        if (!(error instanceof ShopierError) || attempt > maxRetries) {
+          throw error;
+        }
+
+        const reason = failureReason(error);
+        const status = numberDetail(error, 'status');
+
+        // A caller cancellation is a decision, not a failure. Never retry it.
+        if (reason === 'aborted' || options.signal?.aborted) {
+          throw error;
+        }
+
+        const retryAfterMs = numberDetail(error, 'retryAfterMs');
+        const delayMs = Math.min(
+          retryAfterMs ?? backoffDelay(attempt, baseDelayMs, maxDelayMs),
+          maxDelayMs
+        );
+        const context: ShopierRetryContext = {
+          attempt,
+          maxRetries,
+          method,
+          path,
+          status,
+          reason,
+          error,
+          delayMs,
+          retryable: isRetryable(reason, status, method, retry.retryNonIdempotent === true),
+        };
+
+        if (!(retry.shouldRetry ? retry.shouldRetry(context) : context.retryable)) {
+          throw error;
+        }
+
+        retry.onRetry?.(context);
+        await sleep(delayMs, options.signal);
+      }
+    }
+  }
+
+  private async attempt<T>(
+    url: string,
+    method: ShopierHttpMethod,
+    headers: Record<string, string>,
+    body: string | undefined,
+    externalSignal: AbortSignal | undefined
+  ): Promise<T> {
+    const { signal, cleanup } = createRequestSignal(this.timeoutMs, externalSignal);
+
+    try {
+      const response = await this.fetcher!(url, { method, headers, body, signal });
+      const responseBody = await readResponseBody(response);
 
       if (!response.ok) {
+        const retryAfterMs = parseRetryAfter(response.headers.get('retry-after'));
+
         throw createShopierApiError('Shopier API response was not successful', {
           status: response.status,
           statusText: response.statusText,
-          body,
+          body: responseBody,
+          reason: 'http',
+          ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
         });
       }
 
-      return body as T;
+      return responseBody as T;
     } catch (error) {
       if (error instanceof ShopierError) {
         throw error;
       }
 
       if (error instanceof Error && error.name === 'AbortError') {
+        if (externalSignal?.aborted) {
+          throw new ShopierApiRequestError('Shopier API request was aborted', {
+            reason: 'aborted',
+          });
+        }
+
         throw new ShopierApiRequestError('Shopier API request timed out', {
+          reason: 'timeout',
           timeoutMs: this.timeoutMs,
         });
       }
 
       throw new ShopierApiRequestError('Shopier API request failed', {
+        reason: 'network',
         cause: error instanceof Error ? error.message : String(error),
       });
     } finally {
       cleanup();
     }
   }
+}
+
+/**
+ * The default retry policy.
+ *
+ * 429 is retried for every method: a rate limited request was rejected before
+ * it was processed, so repeating it cannot duplicate an effect. Every other
+ * retryable failure is gated on idempotency, because a POST that timed out or
+ * returned a 500 may still have been applied on Shopier's side.
+ */
+function isRetryable(
+  reason: ShopierFailureReason,
+  status: number | undefined,
+  method: ShopierHttpMethod,
+  retryNonIdempotent: boolean
+): boolean {
+  if (status === 429) {
+    return true;
+  }
+
+  if (!IDEMPOTENT_METHODS.includes(method) && !retryNonIdempotent) {
+    return false;
+  }
+
+  if (reason === 'timeout' || reason === 'network') {
+    return true;
+  }
+
+  return status !== undefined && RETRYABLE_STATUSES.includes(status);
+}
+
+function failureReason(error: ShopierError): ShopierFailureReason {
+  const reason = error.details?.reason;
+
+  if (reason === 'http' || reason === 'timeout' || reason === 'aborted' || reason === 'network') {
+    return reason;
+  }
+
+  return typeof error.details?.status === 'number' ? 'http' : 'network';
+}
+
+function numberDetail(error: ShopierError, key: string): number | undefined {
+  const value = error.details?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** Exponential backoff with jitter, so retrying clients do not resynchronize. */
+function backoffDelay(attempt: number, baseDelayMs: number, maxDelayMs: number): number {
+  const exponential = Math.min(baseDelayMs * 2 ** (attempt - 1), maxDelayMs);
+  return Math.round(exponential * (0.5 + Math.random() * 0.5));
+}
+
+/** Accepts both forms RFC 9110 allows for `Retry-After`: seconds, or an HTTP date. */
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  const seconds = Number(trimmed);
+
+  if (trimmed !== '' && Number.isFinite(seconds)) {
+    return seconds > 0 ? seconds * 1000 : 0;
+  }
+
+  const timestamp = Date.parse(trimmed);
+
+  if (Number.isNaN(timestamp)) {
+    return undefined;
+  }
+
+  return Math.max(0, timestamp - Date.now());
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+
+    function onAbort(): void {
+      clearTimeout(timer);
+      reject(new ShopierApiRequestError('Shopier API request was aborted', { reason: 'aborted' }));
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function resolveAccessToken(config: ShopierApiConfig): string | undefined {
@@ -887,16 +1120,17 @@ function createRequestSignal(timeoutMs: number, externalSignal?: AbortSignal): {
 
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  const forwardAbort = (): void => controller.abort();
 
   if (timeoutMs > 0) {
-    timeout = setTimeout(() => controller.abort(), timeoutMs);
+    timeout = setTimeout(forwardAbort, timeoutMs);
   }
 
   if (externalSignal) {
     if (externalSignal.aborted) {
       controller.abort();
     } else {
-      externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      externalSignal.addEventListener('abort', forwardAbort, { once: true });
     }
   }
 
@@ -906,6 +1140,10 @@ function createRequestSignal(timeoutMs: number, externalSignal?: AbortSignal): {
       if (timeout) {
         clearTimeout(timeout);
       }
+
+      // Each retry attempt registers its own listener; without this the
+      // caller's signal accumulates one per attempt.
+      externalSignal?.removeEventListener('abort', forwardAbort);
     },
   };
 }

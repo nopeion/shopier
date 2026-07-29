@@ -172,6 +172,49 @@ const refund = await client.createRefund({
 | `variations` | `list`, `create`, `get`, `update`, `delete` |
 | `webhooks` | `list`, `create`, `delete` |
 
+### Retries and rate limits
+
+The client retries transient failures on its own: HTTP 408, 429, 500, 502, 503 and 504, plus timeouts and network errors. Backoff is exponential with jitter, and a `Retry-After` header is honoured when Shopier sends one.
+
+**POST is not retried by default.** A POST that timed out or returned a 500 may still have been applied on Shopier's side, so repeating it could issue a second refund or create a duplicate product. Idempotent methods (`GET`, `PUT`, `DELETE`) are retried normally. HTTP 429 is the one exception that is retried for every method, because a rate limited request was rejected before it was processed.
+
+```ts
+const client = new ShopierApiClient({
+  pat: process.env.SHOPIER_PAT,
+  retry: {
+    maxRetries: 2,        // retries after the first attempt; 0 disables
+    baseDelayMs: 500,     // doubled each attempt
+    maxDelayMs: 8000,     // caps any single wait, including Retry-After
+    onRetry: ({ attempt, status, delayMs }) => {
+      console.warn(`Shopier retry ${attempt}: status ${status}, waiting ${delayMs}ms`);
+    },
+  },
+});
+```
+
+`timeoutMs` applies to each attempt, not to the retried sequence as a whole. Passing your own `AbortSignal` cancels everything, including a pending backoff wait, and a cancellation is never retried.
+
+To retry a POST you know is safe to repeat, opt in per request:
+
+```ts
+await client.request('/products', {
+  method: 'POST',
+  body: input,
+  retry: { retryNonIdempotent: true },
+});
+```
+
+`shouldRetry` replaces the default decision, and receives the default in `context.retryable` so you can build on it:
+
+```ts
+const client = new ShopierApiClient({
+  pat: process.env.SHOPIER_PAT,
+  retry: {
+    shouldRetry: (context) => context.retryable || context.status === 409,
+  },
+});
+```
+
 ## Webhooks
 
 ```ts

@@ -4,13 +4,22 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 
 ## [Unreleased]
 
+### Added
+
+- Automatic retries in `ShopierApiClient` for transient failures: HTTP 408, 429, 500, 502, 503, 504, timeouts, and network errors. Backoff is exponential with jitter and honours a `Retry-After` header when Shopier sends one.
+- `retry` options on both the client config and individual requests: `maxRetries`, `baseDelayMs`, `maxDelayMs`, `retryNonIdempotent`, `shouldRetry`, and `onRetry`. Exported as `ShopierRetryOptions`, `ShopierRetryContext`, and `ShopierFailureReason`.
+- `error.details.reason` on API errors, distinguishing `http`, `timeout`, `aborted`, and `network` failures.
+
 ### Fixed
 
 - `client.variations.list()` now forwards its pagination parameters. The method accepted `limit`, `page`, and `sort` in its type signature but silently discarded them.
 
+- A caller-supplied `AbortSignal` no longer leaks one listener per request, and cancelling now reports `Shopier API request was aborted` instead of misreporting a timeout.
+
 ### Changed
 
 - `npm test` now runs with coverage and enforces the thresholds, so a coverage regression fails CI instead of passing unnoticed.
+- Requests are retried by default (`maxRetries: 2`). Idempotent calls that previously failed on a transient error now succeed after a short wait. Set `retry: { maxRetries: 0 }` to restore the old single-attempt behaviour. POST is not retried unless you opt in.
 
 ### Internal
 
