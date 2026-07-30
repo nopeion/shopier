@@ -22,6 +22,10 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 - `npm test` now runs with coverage and enforces the thresholds, so a coverage regression fails CI instead of passing unnoticed.
 - Requests are retried by default (`maxRetries: 2`). Idempotent calls that previously failed on a transient error now succeed after a short wait. Set `retry: { maxRetries: 0 }` to restore the old single-attempt behaviour. POST is not retried unless you opt in.
 
+### Documentation
+
+- Documented that `orders.list()` (and other date-ranged list endpoints) return an empty array rather than an error when `dateStart`/`dateEnd` are omitted — confirmed against the live API, where it's easy to mistake for "no orders" rather than "no filter."
+
 ### Removed
 
 - Deleted the source files behind the classic checkout API that 2.0.0 already dropped from the public exports: `Shopier`, `ConfigManager`/`resolveConfig`, `validateConfig`/`validateBuyer`/`validateAmount`/`validateEmail`/`validatePhone`/`validateInstallment`, `resolveCheckoutCredentials`/`ShopierCheckoutCredentials`, `InvalidApiKeyError`/`InvalidApiSecretError`, the classic form renderers, the singular `webhook.ts`, and the `enums`/`types` modules that only they used. None of this was reachable from `@nopeion/shopier`'s exports or included in the published build; it was unused source left over from the 2.0.0 migration. `SHOPIER_API_KEY` and `SHOPIER_API_SECRET` were only ever read by this dead code — they have done nothing since 2.0.0. Use `SHOPIER_PAT` with `ShopierApiClient` instead; see [the v2 migration guide](./docs/migration-v2.md).

@@ -172,6 +172,16 @@ const refund = await client.createRefund({
 | `variations` | `list`, `create`, `get`, `update`, `delete` |
 | `webhooks` | `list`, `create`, `delete` |
 
+> [!WARNING]
+> `orders.list()` (and other endpoints accepting `dateStart`/`dateEnd`) return an **empty array, not an error**, when no date range is given — confirmed against the live API. Always pass `dateStart`/`dateEnd` as `YYYY-MM-DDTHH:mm:ssZ`, or a working integration will silently see zero results instead of an error pointing at the missing filter.
+>
+> ```ts
+> const orders = await client.orders.list({
+>   dateStart: '2026-01-01T00:00:00Z',
+>   dateEnd: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+> });
+> ```
+
 ### Retries and rate limits
 
 The client retries transient failures on its own: HTTP 408, 429, 500, 502, 503 and 504, plus timeouts and network errors. Backoff is exponential with jitter, and a `Retry-After` header is honoured when Shopier sends one.
