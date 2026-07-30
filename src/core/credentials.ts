@@ -1,11 +1,6 @@
-import { InvalidApiKeyError, InvalidApiSecretError, ValidationError } from '../errors';
+import { ValidationError } from '../errors';
 
 export type ShopierCredentialName = string;
-
-export interface ShopierCheckoutCredentials {
-  apiKey: string;
-  apiSecret: string;
-}
 
 export interface ShopierOsbCredentials {
   username: string;
@@ -14,11 +9,6 @@ export interface ShopierOsbCredentials {
 
 export interface ShopierPatCredentials {
   personalAccessToken: string;
-}
-
-export interface ResolveCheckoutCredentialsOptions extends Partial<ShopierCheckoutCredentials> {
-  credentialName?: ShopierCredentialName;
-  envPrefix?: string;
 }
 
 export interface ResolveOsbCredentialsOptions extends Partial<ShopierOsbCredentials> {
@@ -32,40 +22,11 @@ export interface ResolvePatCredentialsOptions extends Partial<ShopierPatCredenti
 }
 
 export interface ShopierCredentialManagerOptions {
-  checkout?: Record<string, Partial<ShopierCheckoutCredentials>>;
   osb?: Record<string, Partial<ShopierOsbCredentials>>;
   pat?: Record<string, Partial<ShopierPatCredentials>>;
 }
 
 const DEFAULT_CREDENTIAL_NAME = 'default';
-
-export function resolveCheckoutCredentials(
-  options: ResolveCheckoutCredentialsOptions = {}
-): ShopierCheckoutCredentials {
-  const name = normalizeCredentialName(options.credentialName);
-  const apiKey = firstNonEmpty(
-    options.apiKey,
-    ...checkoutEnvNames(name, options.envPrefix, 'API_KEY').map((envName) => process.env[envName])
-  );
-  const apiSecret = firstNonEmpty(
-    options.apiSecret,
-    ...checkoutEnvNames(name, options.envPrefix, 'API_SECRET').map((envName) => process.env[envName])
-  );
-
-  if (!apiKey) {
-    throw new InvalidApiKeyError('API key is missing or empty', {
-      credentialName: name,
-    });
-  }
-
-  if (!apiSecret) {
-    throw new InvalidApiSecretError('API secret is missing or empty', {
-      credentialName: name,
-    });
-  }
-
-  return { apiKey, apiSecret };
-}
 
 export function resolveOsbCredentials(
   options: ResolveOsbCredentialsOptions = {}
@@ -110,21 +71,12 @@ export function resolvePatCredentials(
 }
 
 export class ShopierCredentialManager {
-  private readonly checkout: Record<string, Partial<ShopierCheckoutCredentials>>;
   private readonly osb: Record<string, Partial<ShopierOsbCredentials>>;
   private readonly pat: Record<string, Partial<ShopierPatCredentials>>;
 
   constructor(options: ShopierCredentialManagerOptions = {}) {
-    this.checkout = options.checkout ?? {};
     this.osb = options.osb ?? {};
     this.pat = options.pat ?? {};
-  }
-
-  getCheckout(name: ShopierCredentialName = DEFAULT_CREDENTIAL_NAME): ShopierCheckoutCredentials {
-    return resolveCheckoutCredentials({
-      credentialName: name,
-      ...this.checkout[name],
-    });
   }
 
   getOsb(name: ShopierCredentialName = DEFAULT_CREDENTIAL_NAME): ShopierOsbCredentials {
@@ -140,22 +92,6 @@ export class ShopierCredentialManager {
       ...this.pat[name],
     });
   }
-}
-
-function checkoutEnvNames(
-  name: string,
-  envPrefix: string | undefined,
-  field: 'API_KEY' | 'API_SECRET'
-): string[] {
-  const names = optionalPrefix(envPrefix, field);
-
-  if (name !== DEFAULT_CREDENTIAL_NAME) {
-    names.push(`SHOPIER_CHECKOUT_${toEnvName(name)}_${field}`);
-    names.push(`SHOPIER_${toEnvName(name)}_${field}`);
-  }
-
-  names.push(`SHOPIER_${field}`);
-  return names;
 }
 
 function osbEnvNames(
