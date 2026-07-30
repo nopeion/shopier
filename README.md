@@ -14,6 +14,7 @@ TypeScript/Node.js SDK for Shopier PAT checkout flows, REST API calls, REST webh
 
 - PAT checkout flow that creates Shopier products and can open Shopier hosted checkout.
 - PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
+- Automatic retry with exponential backoff and `Retry-After` support, plus idempotency keys so POST requests can be retried safely.
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
 - OSB `res` + `hash` verification and payload normalization.
@@ -29,7 +30,7 @@ TypeScript/Node.js SDK for Shopier PAT checkout flows, REST API calls, REST webh
 | Existing product checkout | Supported | `buildHostedCheckoutHtml()` opens hosted checkout for a product you already manage in Shopier. |
 | OSB | Supported | `verifyOsb`, `handleOsb`, and `ShopierOsbClient`. |
 | PAT REST API | Supported | Bearer token client for documented `api.shopier.com/v1` endpoints. |
-| Refunds | Supported | List, get, and create refund requests. |
+| Refunds | Supported | List, get, and create refund requests. `create()`'s error responses are not fully reliable — see the warning in [PAT REST API](#pat-rest-api). |
 | REST webhooks | Supported | Verify `Shopier-Signature`, parse event headers and payload. |
 | Sandbox mode | Not assumed | Use real credentials only in server-side local/test environments. |
 
@@ -153,6 +154,9 @@ const refund = await client.createRefund({
   note: 'Customer requested refund',
 });
 ```
+
+> [!WARNING]
+> A `refunds.create()` call can respond with a 500 even when Shopier actually started processing the refund — observed live: the request returned `500 Internal server error`, a second attempt returned `400` with "there is a pending refund request about the order," and the shop dashboard showed the refund as processing, while both `orders.get()` and `refunds.list({ orderId })` still reported no refund at all. Do not treat a failed `refunds.create()` response as proof nothing happened, and do not retry it automatically for this reason (retry already excludes POST by default — see below). Check the Shopier dashboard, or wait and re-check `refunds.list()`, before assuming a retry is safe.
 
 ### Endpoint Map
 
@@ -318,7 +322,7 @@ import { createMockShopierFetch, createShopierWebhookFixture } from '@nopeion/sh
 
 ## Playground
 
-The companion [`shopier-playground`](https://github.com/nopeion/shopier-playground) repository provides a local UI for checkout, PAT order/refund calls, webhook verification, and OSB verification.
+The companion [`shopier-playground`](https://github.com/nopeion/shopier-playground) repository provides a local UI for checkout, PAT order/refund calls, a products/categories catalog, a live webhook receiver (register a real URL and watch deliveries land, not just paste-and-verify), a retry/backoff demo that needs no Shopier account, and OSB verification.
 
 ```bash
 git clone https://github.com/nopeion/shopier-playground.git
@@ -369,6 +373,7 @@ import {
   ShopierPaymentFlow,
   ShopierWebhookRouter,
   buildHostedCheckoutHtml,
+  createIdempotencyKey,
   ShopierWebhookVerifier,
   runShopierDiagnostics,
   verifyAndParseWebhook,

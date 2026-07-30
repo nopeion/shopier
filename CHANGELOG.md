@@ -25,6 +25,7 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 ### Documentation
 
 - Documented that `orders.list()` (and other date-ranged list endpoints) return an empty array rather than an error when `dateStart`/`dateEnd` are omitted — confirmed against the live API, where it's easy to mistake for "no orders" rather than "no filter."
+- Documented that `refunds.create()` can respond with a 500 even when Shopier actually started processing the refund, with the pending refund invisible from both `orders.get()` and `refunds.list()` until it resolves — confirmed live: a failed-looking create call left the dashboard showing "refund processing" that neither read endpoint reported.
 
 ### Removed
 
