@@ -1,6 +1,6 @@
 {
     "name": "@nopeion/shopier",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "TypeScript SDK for Shopier Payment Integration",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",

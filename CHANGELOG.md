@@ -4,6 +4,10 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [2.1.0] - 2026-07-30
+
 ### Added
 
 - Automatic retries in `ShopierApiClient` for transient failures: HTTP 408, 429, 500, 502, 503, 504, timeouts, and network errors. Backoff is exponential with jitter and honours a `Retry-After` header when Shopier sends one.
@@ -32,6 +36,10 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 ### Removed
 
 - Deleted the source files behind the classic checkout API that 2.0.0 already dropped from the public exports: `Shopier`, `ConfigManager`/`resolveConfig`, `validateConfig`/`validateBuyer`/`validateAmount`/`validateEmail`/`validatePhone`/`validateInstallment`, `resolveCheckoutCredentials`/`ShopierCheckoutCredentials`, `InvalidApiKeyError`/`InvalidApiSecretError`, the classic form renderers, the singular `webhook.ts`, and the `enums`/`types` modules that only they used. None of this was reachable from `@nopeion/shopier`'s exports or included in the published build; it was unused source left over from the 2.0.0 migration. `SHOPIER_API_KEY` and `SHOPIER_API_SECRET` were only ever read by this dead code — they have done nothing since 2.0.0. Use `SHOPIER_PAT` with `ShopierApiClient` instead; see [the v2 migration guide](./docs/migration-v2.md).
+
+### Migration
+
+- `orders.list()` now throws a `ValidationError` if you call it without `dateStart` or `dateEnd`. If you were calling it with neither, add at least one — Shopier was already returning an empty array in that case, so nothing you were relying on could have depended on the old behaviour succeeding with real data.
 
 ### Internal
 
