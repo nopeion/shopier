@@ -141,6 +141,7 @@ const client = new ShopierApiClient({
 });
 
 const orders = await client.orders.list({
+  dateStart: '2026-01-01T00:00:00Z', // required - see the note below
   limit: 10,
   fulfillmentStatus: 'unfulfilled',
 });
@@ -176,8 +177,8 @@ const refund = await client.createRefund({
 | `variations` | `list`, `create`, `get`, `update`, `delete` |
 | `webhooks` | `list`, `create`, `delete` |
 
-> [!WARNING]
-> `orders.list()` (and other endpoints accepting `dateStart`/`dateEnd`) return an **empty array, not an error**, when no date range is given — confirmed against the live API. Always pass `dateStart`/`dateEnd` as `YYYY-MM-DDTHH:mm:ssZ`, or a working integration will silently see zero results instead of an error pointing at the missing filter.
+> [!NOTE]
+> Shopier's `/orders` endpoint returns an **empty array, not an error**, when neither `dateStart` nor `dateEnd` is given — confirmed against the live API. `orders.list()` guards against this: calling it without at least one of them throws a `ValidationError` immediately instead of silently returning zero results. Pass both as `YYYY-MM-DDTHH:mm:ssZ`.
 >
 > ```ts
 > const orders = await client.orders.list({
@@ -185,6 +186,8 @@ const refund = await client.createRefund({
 >   dateEnd: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
 > });
 > ```
+>
+> Other endpoints accepting `dateStart`/`dateEnd` (`payouts.list`, `refunds.list`, `products.list`, `balance.transactions.list`) are not guarded — this was only confirmed live for orders, so we didn't assume the same behavior elsewhere.
 
 ### Retries and rate limits
 

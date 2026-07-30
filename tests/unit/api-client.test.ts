@@ -275,7 +275,12 @@ describe('ShopierApiClient', () => {
         method: 'DELETE',
       },
 
-      { name: 'orders.list', call: (c) => c.orders.list(), url: '/orders', method: 'GET' },
+      {
+        name: 'orders.list',
+        call: (c) => c.orders.list({ dateStart: '2026-01-01T00:00:00Z' }),
+        url: '/orders?dateStart=2026-01-01T00%3A00%3A00Z',
+        method: 'GET',
+      },
       { name: 'orders.get', call: (c) => c.orders.get('order-1'), url: '/orders/order-1', method: 'GET' },
       {
         name: 'orders.update',
@@ -516,7 +521,12 @@ describe('ShopierApiClient', () => {
   describe('convenience methods', () => {
     it.each([
       ['getBalance', (c: ShopierApiClient) => c.getBalance(), '/balance', 'GET'],
-      ['listOrders', (c: ShopierApiClient) => c.listOrders(), '/orders', 'GET'],
+      [
+        'listOrders',
+        (c: ShopierApiClient) => c.listOrders({ dateStart: '2026-01-01T00:00:00Z' }),
+        '/orders?dateStart=2026-01-01T00%3A00%3A00Z',
+        'GET',
+      ],
       ['getOrder', (c: ShopierApiClient) => c.getOrder('order-1'), '/orders/order-1', 'GET'],
       [
         'fulfillOrder',
@@ -612,6 +622,66 @@ describe('ShopierApiClient', () => {
       await client.request('/orders', { query: { customerEmail: 'a+b@example.com' } });
 
       expect(urlOf(fetcher)).toBe(`${BASE}/orders?customerEmail=a%2Bb%40example.com`);
+    });
+  });
+
+  describe('orders.list date range', () => {
+    // Shopier returns an empty array, not an error, when orders.list() is
+    // called with neither dateStart nor dateEnd - confirmed live. Since
+    // there's no legitimate reason to omit both, this fails fast instead.
+    it('should throw synchronously when both dateStart and dateEnd are omitted', () => {
+      const { client, fetcher } = createClient({ personalAccessToken: 'pat' });
+
+      expect(() => client.orders.list()).toThrow(ValidationError);
+      expect(() => client.orders.list({})).toThrow(ValidationError);
+      expect(() => client.orders.list({ limit: 10, customerEmail: 'a@b.com' })).toThrow(ValidationError);
+      expect(fetcher).not.toHaveBeenCalled();
+    });
+
+    it('should proceed when only dateStart is given', async () => {
+      const { client, fetcher } = createClient({ personalAccessToken: 'pat' });
+
+      await client.orders.list({ dateStart: '2026-01-01T00:00:00Z' });
+
+      expect(urlOf(fetcher)).toBe(`${BASE}/orders?dateStart=2026-01-01T00%3A00%3A00Z`);
+    });
+
+    it('should proceed when only dateEnd is given', async () => {
+      const { client, fetcher } = createClient({ personalAccessToken: 'pat' });
+
+      await client.orders.list({ dateEnd: '2026-01-01T00:00:00Z' });
+
+      expect(urlOf(fetcher)).toBe(`${BASE}/orders?dateEnd=2026-01-01T00%3A00%3A00Z`);
+    });
+
+    it('should proceed when both dateStart and dateEnd are given', async () => {
+      const { client, fetcher } = createClient({ personalAccessToken: 'pat' });
+
+      await client.orders.list({ dateStart: '2026-01-01T00:00:00Z', dateEnd: '2026-02-01T00:00:00Z' });
+
+      expect(urlOf(fetcher)).toBe(
+        `${BASE}/orders?dateStart=2026-01-01T00%3A00%3A00Z&dateEnd=2026-02-01T00%3A00%3A00Z`
+      );
+    });
+
+    it('should not apply to other list endpoints', async () => {
+      // This guard is scoped to orders.list() specifically, because that's
+      // the one behavior confirmed live. Other date-ranged endpoints
+      // (payouts, refunds, products, balance.transactions) are untouched.
+      const { client, fetcher } = createClient({ personalAccessToken: 'pat' });
+
+      await client.payouts.list();
+      await client.refunds.list();
+      await client.products.list();
+      await client.balance.transactions.list();
+
+      expect(fetcher).toHaveBeenCalledTimes(4);
+    });
+
+    it('should still reject via listOrders() convenience method', () => {
+      const { client } = createClient({ personalAccessToken: 'pat' });
+
+      expect(() => client.listOrders()).toThrow(ValidationError);
     });
   });
 
@@ -718,7 +788,7 @@ describe('ShopierApiClient', () => {
         () => jsonResponse({ message: 'nope' }, status)
       );
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(expected);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(expected);
     });
 
     it('should surface status, statusText, and body on the error details', async () => {
@@ -743,7 +813,7 @@ describe('ShopierApiClient', () => {
     ])('should lift the API message from the %s field', async (_field, body) => {
       const { client } = createClient({ personalAccessToken: 'pat' }, () => jsonResponse(body, 401));
 
-      const error = await captureError(() => client.orders.list());
+      const error = await captureError(() => client.categories.list());
 
       expect((error as Error).message).toBe('Token expired');
     });
@@ -751,7 +821,7 @@ describe('ShopierApiClient', () => {
     it('should keep the generic message when the body carries no API message', async () => {
       const { client } = createClient({ personalAccessToken: 'pat' }, () => jsonResponse([], 500));
 
-      const error = await captureError(() => client.orders.list());
+      const error = await captureError(() => client.categories.list());
 
       expect((error as Error).message).toBe('Shopier API response was not successful');
     });
@@ -780,7 +850,7 @@ describe('ShopierApiClient', () => {
     ])('should map a %s listing message to ShopierHostedCheckoutListingError', async (_label, message) => {
       const { client } = createClient({ personalAccessToken: 'pat' }, () => jsonResponse({ message }, 422));
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierHostedCheckoutListingError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierHostedCheckoutListingError);
     });
 
     it('should prefer the unauthorized mapping over message-based mapping', async () => {
@@ -789,7 +859,7 @@ describe('ShopierApiClient', () => {
         () => jsonResponse({ message: 'Invalid media URL' }, 401)
       );
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierUnauthorizedPatError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierUnauthorizedPatError);
     });
 
     it('should redact sensitive detail fields when logging safely', async () => {
@@ -798,7 +868,7 @@ describe('ShopierApiClient', () => {
         () => jsonResponse({ message: 'nope', token: 'secret-value' }, 401)
       );
 
-      const error = (await captureError(() => client.orders.list())) as ShopierError;
+      const error = (await captureError(() => client.categories.list())) as ShopierError;
 
       expect(error.toSafeJSON()).toMatchObject({
         code: 'SHOPIER_UNAUTHORIZED_PAT',
@@ -826,7 +896,7 @@ describe('ShopierApiClient', () => {
         throw new TypeError('fetch failed');
       });
 
-      const error = await captureError(() => client.orders.list());
+      const error = await captureError(() => client.categories.list());
 
       expect(error).toBeInstanceOf(ShopierApiRequestError);
       expect((error as ShopierError).details).toMatchObject({ cause: 'fetch failed' });
@@ -837,7 +907,7 @@ describe('ShopierApiClient', () => {
         throw 'socket hang up';
       });
 
-      const error = await captureError(() => client.orders.list());
+      const error = await captureError(() => client.categories.list());
 
       expect((error as ShopierError).details).toMatchObject({ cause: 'socket hang up' });
     });
@@ -848,7 +918,7 @@ describe('ShopierApiClient', () => {
         throw thrown;
       });
 
-      await expect(client.orders.list()).rejects.toBe(thrown);
+      await expect(client.categories.list()).rejects.toBe(thrown);
     });
   });
 
@@ -865,7 +935,7 @@ describe('ShopierApiClient', () => {
         (_url, init) => neverResolving(init)
       );
 
-      const error = await captureError(() => client.orders.list());
+      const error = await captureError(() => client.categories.list());
 
       expect(error).toBeInstanceOf(ShopierApiRequestError);
       expect((error as Error).message).toBe('Shopier API request timed out');
@@ -875,7 +945,7 @@ describe('ShopierApiClient', () => {
     it('should not attach a signal when timeouts are disabled and no signal is supplied', async () => {
       const { client, fetcher } = createClient({ personalAccessToken: 'pat', timeoutMs: 0 });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(initOf(fetcher).signal).toBeUndefined();
     });
@@ -909,7 +979,7 @@ describe('ShopierApiClient', () => {
       const clearSpy = jest.spyOn(global, 'clearTimeout');
       const { client } = createClient({ personalAccessToken: 'pat', timeoutMs: 5000 });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(clearSpy).toHaveBeenCalled();
       clearSpy.mockRestore();

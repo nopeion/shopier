@@ -72,7 +72,7 @@ import { ShopierApiClient } from '@nopeion/shopier';
 
 const client = new ShopierApiClient({ pat: process.env.SHOPIER_PAT });
 
-const orders = await client.orders.list({ limit: 10 });
+const orders = await client.orders.list({ dateStart: '2026-01-01T00:00:00Z', limit: 10 });
 const refund = await client.refunds.create({
   orderId: 'order-id',
   amount: '10.00',

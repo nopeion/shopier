@@ -17,7 +17,7 @@ describe('ShopierApiClient retries', () => {
         json({ id: 'order-1' }),
       ]);
 
-      await expect(client.orders.list()).resolves.toEqual({ id: 'order-1' });
+      await expect(client.categories.list()).resolves.toEqual({ id: 'order-1' });
       expect(fetcher).toHaveBeenCalledTimes(3);
     });
 
@@ -75,7 +75,7 @@ describe('ShopierApiClient retries', () => {
     it.each([408, 429, 500, 502, 503, 504])('should retry HTTP %s', async (status) => {
       const { client, fetcher } = createClient([error(status), json({ ok: true })]);
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(fetcher).toHaveBeenCalledTimes(2);
     });
@@ -83,14 +83,14 @@ describe('ShopierApiClient retries', () => {
     it.each([400, 401, 403, 404, 409, 422])('should not retry HTTP %s', async (status) => {
       const { client, fetcher } = createClient([error(status), json({ ok: true })]);
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierError);
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
 
     it('should retry a network failure on GET', async () => {
       const { client, fetcher } = createClient([networkFailure(), json({ ok: true })]);
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(fetcher).toHaveBeenCalledTimes(2);
     });
@@ -98,7 +98,7 @@ describe('ShopierApiClient retries', () => {
     it('should retry a per-attempt timeout on GET', async () => {
       const { client, fetcher } = createClient([timeoutFailure(), json({ ok: true })], {}, 5);
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(fetcher).toHaveBeenCalledTimes(2);
     });
@@ -106,14 +106,14 @@ describe('ShopierApiClient retries', () => {
     it('should surface the final error once retries are exhausted', async () => {
       const { client, fetcher } = createClient([error(503), error(503), error(429)]);
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierRateLimitError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierRateLimitError);
       expect(fetcher).toHaveBeenCalledTimes(3);
     });
 
     it('should preserve the mapped error type across retries', async () => {
       const { client } = createClient([error(503), error(503), error(401)]);
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierUnauthorizedPatError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierUnauthorizedPatError);
     });
 
     // A custom fetch layer can map its own failures with the exported
@@ -127,7 +127,7 @@ describe('ShopierApiClient retries', () => {
         json({ ok: true }),
       ]);
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(fetcher).toHaveBeenCalledTimes(2);
     });
@@ -144,7 +144,7 @@ describe('ShopierApiClient retries', () => {
         { onRetry: (context) => contexts.push(context) }
       );
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(contexts[0]).toMatchObject({ reason: 'network', status: undefined });
     });
@@ -154,14 +154,14 @@ describe('ShopierApiClient retries', () => {
     it('should make a single attempt when retrying is disabled', async () => {
       const { client, fetcher } = createClient([error(503), json({ ok: true })], { maxRetries: 0 });
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
 
     it('should default to two retries', async () => {
       const { client, fetcher } = createClient([error(503), error(503), error(503)]);
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
       expect(fetcher).toHaveBeenCalledTimes(3);
     });
 
@@ -171,7 +171,7 @@ describe('ShopierApiClient retries', () => {
         { maxRetries: 3 }
       );
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(fetcher).toHaveBeenCalledTimes(4);
     });
@@ -179,7 +179,7 @@ describe('ShopierApiClient retries', () => {
     it('should treat a negative maxRetries as zero', async () => {
       const { client, fetcher } = createClient([error(503), json({ ok: true })], { maxRetries: -5 });
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
 
@@ -201,7 +201,7 @@ describe('ShopierApiClient retries', () => {
         onRetry: (context) => delays.push(context.delayMs),
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       // 0.5 jitter keeps 75% of the exponential term: 100 -> 75, 200 -> 150.
       expect(delays).toEqual([75, 150]);
@@ -217,7 +217,7 @@ describe('ShopierApiClient retries', () => {
         onRetry: (context) => delays.push(context.delayMs),
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(delays).toEqual([10, 10]);
       randomSpy.mockRestore();
@@ -233,7 +233,7 @@ describe('ShopierApiClient retries', () => {
     ])('should parse %s', async (_label, header, expected) => {
       const { client } = createClient([error(429, { 'retry-after': header })], { maxRetries: 0 });
 
-      const failure = (await captureError(() => client.orders.list())) as ShopierError;
+      const failure = (await captureError(() => client.categories.list())) as ShopierError;
 
       expect(failure.details).toMatchObject({ retryAfterMs: expected });
     });
@@ -242,7 +242,7 @@ describe('ShopierApiClient retries', () => {
       const future = new Date(Date.now() + 30_000).toUTCString();
       const { client } = createClient([error(429, { 'retry-after': future })], { maxRetries: 0 });
 
-      const failure = (await captureError(() => client.orders.list())) as ShopierError;
+      const failure = (await captureError(() => client.categories.list())) as ShopierError;
       const retryAfterMs = (failure.details as { retryAfterMs: number }).retryAfterMs;
 
       expect(retryAfterMs).toBeGreaterThan(25_000);
@@ -253,7 +253,7 @@ describe('ShopierApiClient retries', () => {
       const past = new Date(Date.now() - 30_000).toUTCString();
       const { client } = createClient([error(429, { 'retry-after': past })], { maxRetries: 0 });
 
-      const failure = (await captureError(() => client.orders.list())) as ShopierError;
+      const failure = (await captureError(() => client.categories.list())) as ShopierError;
 
       expect(failure.details).toMatchObject({ retryAfterMs: 0 });
     });
@@ -265,7 +265,7 @@ describe('ShopierApiClient retries', () => {
         onRetry: (context) => delays.push(context.delayMs),
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       const failure = delays[0];
       expect(failure).toBe(0);
@@ -278,7 +278,7 @@ describe('ShopierApiClient retries', () => {
         onRetry: (context) => delays.push(context.delayMs),
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(delays).toEqual([50]);
     });
@@ -290,7 +290,7 @@ describe('ShopierApiClient retries', () => {
         onRetry: (context) => delays.push(context.delayMs),
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(delays).toEqual([5]);
     });
@@ -377,7 +377,7 @@ describe('ShopierApiClient retries', () => {
         onRetry: (context) => contexts.push(context),
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(contexts[0]).toMatchObject({ reason: 'network', status: undefined });
     });
@@ -388,7 +388,7 @@ describe('ShopierApiClient retries', () => {
         shouldRetry: (context) => context.retryable || context.status === 409,
       });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(fetcher).toHaveBeenCalledTimes(2);
     });
@@ -399,7 +399,7 @@ describe('ShopierApiClient retries', () => {
         shouldRetry: () => false,
       });
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
 
@@ -410,7 +410,7 @@ describe('ShopierApiClient retries', () => {
         shouldRetry,
       });
 
-      await expect(client.orders.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
+      await expect(client.categories.list()).rejects.toBeInstanceOf(ShopierApiRequestError);
       expect(shouldRetry).not.toHaveBeenCalled();
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
@@ -419,7 +419,7 @@ describe('ShopierApiClient retries', () => {
       const onRetry = jest.fn();
       const { client } = createClient([json({ ok: true })], { onRetry });
 
-      await client.orders.list();
+      await client.categories.list();
 
       expect(onRetry).not.toHaveBeenCalled();
     });
@@ -445,7 +445,7 @@ describe('ShopierApiClient retries', () => {
     it('should give each attempt a fresh timeout signal', async () => {
       const { client, fetcher } = createClient([error(503), json({ ok: true })], {}, 5000);
 
-      await client.orders.list();
+      await client.categories.list();
 
       const signals = fetcher.mock.calls.map((call) => call[1]?.signal);
       expect(signals[0]).toBeDefined();

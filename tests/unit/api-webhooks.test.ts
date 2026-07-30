@@ -24,6 +24,7 @@ describe('PAT API client and REST webhook helpers', () => {
     });
 
     const orders = await client.orders.list({
+      dateStart: '2026-01-01T00:00:00Z',
       limit: 10,
       page: 2,
       fulfillmentStatus: 'fulfilled',
@@ -32,7 +33,7 @@ describe('PAT API client and REST webhook helpers', () => {
 
     expect(orders).toEqual([{ id: 'order-1', status: 'fulfilled' }]);
     expect(fetcher).toHaveBeenCalledWith(
-      'https://api.shopier.com/v1/orders?limit=10&page=2&fulfillmentStatus=fulfilled&customerEmail=buyer%40example.com',
+      'https://api.shopier.com/v1/orders?dateStart=2026-01-01T00%3A00%3A00Z&limit=10&page=2&fulfillmentStatus=fulfilled&customerEmail=buyer%40example.com',
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({

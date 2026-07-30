@@ -753,7 +753,7 @@ export class ShopierApiClient {
     };
 
     this.orders = {
-      list: (params) => this.request<ShopierOrder[]>('/orders', { query: params }),
+      list: (params) => this.request<ShopierOrder[]>('/orders', { query: requireOrderDateRange(params) }),
       get: (orderId) => this.request<ShopierOrder>(`/orders/${pathSegment(orderId)}`),
       update: (orderId, input) => this.request<ShopierOrder>(`/orders/${pathSegment(orderId)}`, { method: 'PUT', body: input }),
       fulfill: (orderId, input) => this.request<ShopierOrder>(`/orders/${pathSegment(orderId)}`, {
@@ -1179,6 +1179,24 @@ function buildQueryString(query?: ShopierQueryParams): string {
 
   const serialized = search.toString();
   return serialized ? `?${serialized}` : '';
+}
+
+/**
+ * Shopier's `GET /orders` returns an empty array, not an error, when neither
+ * dateStart nor dateEnd is given - confirmed live, including with other
+ * filters set. There is no legitimate reason to omit both, so this fails
+ * fast instead of returning a silently useless result.
+ */
+function requireOrderDateRange(params: ShopierListOrdersParams | undefined): ShopierListOrdersParams | undefined {
+  if (!params?.dateStart && !params?.dateEnd) {
+    throw new ValidationError(
+      'orders.list() requires dateStart and/or dateEnd. Shopier returns an empty array, not an error, ' +
+      'when both are omitted, which is easy to mistake for "no orders" rather than "no filter".',
+      { field: 'dateStart/dateEnd' }
+    );
+  }
+
+  return params;
 }
 
 function pathSegment(value: string): string {

@@ -10,6 +10,7 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 - `retry` options on both the client config and individual requests: `maxRetries`, `baseDelayMs`, `maxDelayMs`, `retryNonIdempotent`, `shouldRetry`, and `onRetry`. Exported as `ShopierRetryOptions`, `ShopierRetryContext`, and `ShopierFailureReason`.
 - `error.details.reason` on API errors, distinguishing `http`, `timeout`, `aborted`, and `network` failures.
 - `idempotencyKey` option: every `create` method (`refunds.create`, `products.create`, `categories.create`, and so on, plus the `createRefund`/`createProduct`/`createWebhook` convenience methods) accepts a second `{ idempotencyKey }` argument, sent as the `Idempotency-Key` header. `createIdempotencyKey()` generates one. Exported as `ShopierCreateOptions`. **Does not affect retry behaviour** — see Fixed, below.
+- `orders.list()` now throws a `ValidationError` immediately when both `dateStart` and `dateEnd` are omitted, instead of silently sending a request Shopier answers with an empty array. **Breaking for any caller relying on that empty-array response** — pass at least one of `dateStart`/`dateEnd` (`YYYY-MM-DDTHH:mm:ssZ`). Scoped to `orders.list()` only; other date-ranged list endpoints (`payouts`, `refunds`, `products`, `balance.transactions`) are unguarded, since this was only confirmed live for orders.
 
 ### Fixed
 
@@ -26,7 +27,6 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 
 ### Documentation
 
-- Documented that `orders.list()` (and other date-ranged list endpoints) return an empty array rather than an error when `dateStart`/`dateEnd` are omitted — confirmed against the live API, where it's easy to mistake for "no orders" rather than "no filter."
 - Documented that `refunds.create()` can respond with a 500 even when Shopier actually started processing the refund, with the pending refund invisible from both `orders.get()` and `refunds.list()` until it resolves — confirmed live: a failed-looking create call left the dashboard showing "refund processing" that neither read endpoint reported.
 
 ### Removed
