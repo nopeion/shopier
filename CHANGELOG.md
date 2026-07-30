@@ -9,13 +9,15 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 - Automatic retries in `ShopierApiClient` for transient failures: HTTP 408, 429, 500, 502, 503, 504, timeouts, and network errors. Backoff is exponential with jitter and honours a `Retry-After` header when Shopier sends one.
 - `retry` options on both the client config and individual requests: `maxRetries`, `baseDelayMs`, `maxDelayMs`, `retryNonIdempotent`, `shouldRetry`, and `onRetry`. Exported as `ShopierRetryOptions`, `ShopierRetryContext`, and `ShopierFailureReason`.
 - `error.details.reason` on API errors, distinguishing `http`, `timeout`, `aborted`, and `network` failures.
-- Idempotency key support: every `create` method (`refunds.create`, `products.create`, `categories.create`, and so on, plus the `createRefund`/`createProduct`/`createWebhook` convenience methods) accepts a second `{ idempotencyKey }` argument, sent as the `Idempotency-Key` header. Supplying one also makes that POST eligible for retry, without needing `retryNonIdempotent`. `createIdempotencyKey()` generates one. Exported as `ShopierCreateOptions`.
+- `idempotencyKey` option: every `create` method (`refunds.create`, `products.create`, `categories.create`, and so on, plus the `createRefund`/`createProduct`/`createWebhook` convenience methods) accepts a second `{ idempotencyKey }` argument, sent as the `Idempotency-Key` header. `createIdempotencyKey()` generates one. Exported as `ShopierCreateOptions`. **Does not affect retry behaviour** — see Fixed, below.
 
 ### Fixed
 
 - `client.variations.list()` now forwards its pagination parameters. The method accepted `limit`, `page`, and `sort` in its type signature but silently discarded them.
 
 - A caller-supplied `AbortSignal` no longer leaks one listener per request, and cancelling now reports `Shopier API request was aborted` instead of misreporting a timeout.
+
+- **Safety fix:** supplying `idempotencyKey` no longer makes a POST eligible for retry on its own. It shipped that way under the assumption that Shopier deduplicates requests carrying an `Idempotency-Key` header; tested live, it does not — two identical `products.create()` calls with the same key created two separate products. Retrying a POST on the strength of a key alone could have created duplicate resources (a second refund, a second product) while looking safe. `retry: { retryNonIdempotent: true }` is now the only way to retry a POST, unchanged in risk from before this feature existed.
 
 ### Changed
 

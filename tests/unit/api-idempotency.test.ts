@@ -45,7 +45,11 @@ describe('ShopierApiClient idempotency keys', () => {
       expect(initOf(fetcher).headers).toMatchObject({ 'Idempotency-Key': 'from-headers' });
     });
 
-    it('should attach the same key to every retried attempt', async () => {
+    it('should attach the same key to every attempt when retryNonIdempotent is also set', async () => {
+      // idempotencyKey alone does not enable POST retry (see 'retry
+      // eligibility' below) - retryNonIdempotent is required. This checks
+      // that when a caller opts into that, the key stays stable across
+      // attempts rather than resetting.
       const fetcher = jest.fn()
         .mockResolvedValueOnce(error(503))
         .mockResolvedValueOnce(error(503))
@@ -53,7 +57,7 @@ describe('ShopierApiClient idempotency keys', () => {
       const client = new ShopierApiClient({
         personalAccessToken: 'pat',
         fetch: fetcher as unknown as typeof fetch,
-        retry: { baseDelayMs: 0 },
+        retry: { baseDelayMs: 0, retryNonIdempotent: true },
       });
 
       await client.refunds.create(
@@ -67,7 +71,11 @@ describe('ShopierApiClient idempotency keys', () => {
   });
 
   describe('retry eligibility', () => {
-    it('should retry a POST that failed with a 503 when an idempotency key is present', async () => {
+    // Verified live against Shopier's API: two identical create calls with
+    // the same Idempotency-Key produced two separate resources. Shopier does
+    // not deduplicate on this header, so supplying a key must NOT be treated
+    // as license to retry a POST - only retryNonIdempotent does that.
+    it('should NOT retry a POST on a 503 just because an idempotency key is present', async () => {
       const fetcher = jest.fn()
         .mockResolvedValueOnce(error(503))
         .mockResolvedValueOnce(json({ id: 'refund-1' })) as unknown as Fetcher;
@@ -79,14 +87,11 @@ describe('ShopierApiClient idempotency keys', () => {
 
       await expect(
         client.refunds.create({ orderId: 'order-1', amount: '10.00' }, { idempotencyKey: 'key-1' })
-      ).resolves.toEqual({ id: 'refund-1' });
-      expect(fetcher).toHaveBeenCalledTimes(2);
+      ).rejects.toBeInstanceOf(ShopierApiRequestError);
+      expect(fetcher).toHaveBeenCalledTimes(1);
     });
 
-    it('should retry a POST that failed with a network error when an idempotency key is present', async () => {
-      // The key makes a repeat safe regardless of why the first attempt
-      // failed, so this follows the same idempotent-method rules GET/PUT/
-      // DELETE already get: network errors are retried.
+    it('should NOT retry a POST on a network error just because an idempotency key is present', async () => {
       const fetcher = jest.fn()
         .mockRejectedValueOnce(new TypeError('fetch failed'))
         .mockResolvedValueOnce(json({ id: 'refund-1' })) as unknown as Fetcher;
@@ -94,6 +99,22 @@ describe('ShopierApiClient idempotency keys', () => {
         personalAccessToken: 'pat',
         fetch: fetcher as unknown as typeof fetch,
         retry: { baseDelayMs: 0 },
+      });
+
+      await expect(
+        client.refunds.create({ orderId: 'order-1', amount: '10.00' }, { idempotencyKey: 'key-1' })
+      ).rejects.toBeInstanceOf(ShopierApiRequestError);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry a POST when an idempotency key AND retryNonIdempotent are both set', async () => {
+      const fetcher = jest.fn()
+        .mockResolvedValueOnce(error(503))
+        .mockResolvedValueOnce(json({ id: 'refund-1' })) as unknown as Fetcher;
+      const client = new ShopierApiClient({
+        personalAccessToken: 'pat',
+        fetch: fetcher as unknown as typeof fetch,
+        retry: { baseDelayMs: 0, retryNonIdempotent: true },
       });
 
       await expect(

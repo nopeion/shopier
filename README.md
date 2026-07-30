@@ -14,7 +14,7 @@ TypeScript/Node.js SDK for Shopier PAT checkout flows, REST API calls, REST webh
 
 - PAT checkout flow that creates Shopier products and can open Shopier hosted checkout.
 - PAT REST API client for balance, categories, discounts, orders, payouts, products, refunds, selections, shippings, shop settings, variations, and webhook subscriptions.
-- Automatic retry with exponential backoff and `Retry-After` support, plus idempotency keys so POST requests can be retried safely.
+- Automatic retry with exponential backoff and `Retry-After` support for idempotent requests, plus an opt-in escape hatch for POST.
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
 - OSB `res` + `hash` verification and payload normalization.
@@ -218,7 +218,7 @@ await client.request('/products', {
 });
 ```
 
-The safer way to make a specific POST retryable is an idempotency key. Pass one to any `create` call and Shopier recognizes a repeat with the same key as the same request instead of a new one, so that call is retried automatically without needing `retryNonIdempotent`:
+Every `create` call also accepts an `idempotencyKey`, sent as the `Idempotency-Key` header:
 
 ```ts
 import { createIdempotencyKey } from '@nopeion/shopier';
@@ -231,7 +231,8 @@ await client.refunds.create(
 );
 ```
 
-Generate the key once per logical operation (for example, once per refund attempt on your side) and reuse it across your own retries too, not just the client's internal ones — a fresh key per attempt defeats the point.
+> [!WARNING]
+> **This does not make the POST retryable, and it is not a safety mechanism.** We tested it live: two identical `products.create()` calls with the same `Idempotency-Key` created two separate products, so Shopier does not deduplicate on it. Supplying a key alone changes nothing about retry behaviour — you still need `retry: { retryNonIdempotent: true }` to retry that POST, and doing so is exactly as risky as without a key. Use `idempotencyKey` only for your own request tracing/correlation (for example, matching a log line back to a specific attempt), not as license to retry.
 
 `shouldRetry` replaces the default decision, and receives the default in `context.retryable` so you can build on it:
 

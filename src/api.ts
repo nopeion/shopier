@@ -133,9 +133,9 @@ export interface ShopierApiRequestOptions {
   /** Per-request retry overrides, merged over the client-level options. */
   retry?: ShopierRetryOptions;
   /**
-   * Sent as the `Idempotency-Key` header. Supplying one on a POST also makes
-   * that request eligible for retry, since a repeat with the same key is
-   * safe by construction. See `ShopierCreateOptions`.
+   * Sent as the `Idempotency-Key` header. Shopier does not appear to
+   * deduplicate on it (verified live), so it does NOT make a POST eligible
+   * for retry by itself. See `ShopierCreateOptions`.
    */
   idempotencyKey?: string;
 }
@@ -579,10 +579,14 @@ export interface ShopierBalanceApi {
 }
 
 /**
- * Options for a create call. `idempotencyKey` marks the call safe to retry:
- * pass the same key on a repeat and Shopier recognizes it as the same
- * request instead of creating a second one. Without a key, POST is not
- * retried on failure. See `createIdempotencyKey()`.
+ * Options for a create call. `idempotencyKey` is sent as the `Idempotency-Key`
+ * header, but does NOT make the call safe to retry: tested live against
+ * Shopier's API, two identical create calls with the same key produced two
+ * separate resources, so Shopier does not deduplicate on it. Use it for your
+ * own request tracing/correlation, not as a retry-safety mechanism. This
+ * client never retries POST on the strength of a supplied key alone; use
+ * `retry: { retryNonIdempotent: true }` if you've independently confirmed a
+ * specific endpoint is safe to repeat. See `createIdempotencyKey()`.
  */
 export interface ShopierCreateOptions {
   idempotencyKey?: string;
@@ -955,12 +959,7 @@ export class ShopierApiClient {
           reason,
           error,
           delayMs,
-          retryable: isRetryable(
-            reason,
-            status,
-            method,
-            retry.retryNonIdempotent === true || Boolean(options.idempotencyKey)
-          ),
+          retryable: isRetryable(reason, status, method, retry.retryNonIdempotent === true),
         };
 
         if (!(retry.shouldRetry ? retry.shouldRetry(context) : context.retryable)) {
@@ -1033,9 +1032,14 @@ export class ShopierApiClient {
  * 429 is retried for every method: a rate limited request was rejected before
  * it was processed, so repeating it cannot duplicate an effect. Every other
  * retryable failure is gated on idempotency, because a POST that timed out or
- * returned a 500 may still have been applied on Shopier's side. `treatAsIdempotent`
- * lifts that gate, either because the caller opted into `retryNonIdempotent` or
- * because the request carried an `idempotencyKey` that makes a repeat safe.
+ * returned a 500 may still have been applied on Shopier's side.
+ * `treatAsIdempotent` lifts that gate only when the caller explicitly opts in
+ * via `retryNonIdempotent`.
+ *
+ * `idempotencyKey` does NOT lift this gate. Verified live against Shopier's
+ * API: two identical `products.create()` calls with the same
+ * `Idempotency-Key` header created two separate products. Shopier does not
+ * deduplicate on it, so it cannot be trusted to make a POST retry safe.
  */
 function isRetryable(
   reason: ShopierFailureReason,
@@ -1123,8 +1127,10 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 
 /**
  * Generates a random key suitable for `idempotencyKey` / `ShopierCreateOptions`.
- * Call it once per logical operation and reuse the same value across retries
- * of that operation; a fresh key per attempt defeats the point.
+ * Shopier does not deduplicate on this key (verified live), so it is not a
+ * retry-safety mechanism — use it for your own request correlation/logging.
+ * If you do reuse it across your own retries, call this once per logical
+ * operation rather than once per attempt.
  */
 export function createIdempotencyKey(): string {
   return randomUUID();
