@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { SignatureValidationError, ValidationError } from './errors';
 import { ShopierWebhookEventType } from './api';
+import { safeJsonParse } from './utils';
 
 export type WebhookHeadersInput = Headers | Record<string, string | string[] | undefined>;
 
@@ -107,7 +108,7 @@ export function verifyAndParseWebhook<TBody = unknown>(
   let payload: TBody;
 
   try {
-    payload = JSON.parse(rawBody) as TBody;
+    payload = safeJsonParse(rawBody) as TBody;
   } catch {
     throw new ValidationError('Webhook payload is not valid JSON');
   }

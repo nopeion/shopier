@@ -4,7 +4,18 @@ All notable changes to `@nopeion/shopier` are documented in this file. Releases 
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- `safeJsonParse` and `safeJsonReviver` utilities in `src/utils/safe-json.ts` to provide native prototype pollution protection when parsing external JSON payloads.
+
+### Security
+
+- **Prototype Pollution Prevention:** Replaced standard `JSON.parse` with a hardened `safeJsonParse` reviver for processing OSB and REST Webhook payloads. This mitigates JSON-based prototype pollution vectors by aggressively filtering `__proto__`, `constructor`, and `prototype` keys during ingestion.
+
+### Changed
+
+- **Architecture Deconstruction:** The monolithic `api.ts` file has been cleanly split into a modular directory structure (`src/api/client.ts`, `src/api/types.ts`, `src/api/index.ts`), significantly reducing single-file complexity while strictly maintaining external export interfaces for zero-breakage backward compatibility.
+- **Performance Optimization:** Refactored the `ShopierPaymentFlow.cleanupProducts` method to utilize asynchronous execution. Sequential looping was replaced by `Promise.all` mapping combined with a 5-item batch chunking strategy to maximize throughput while avoiding API rate limits.
 
 ## [2.1.0] - 2026-07-30
 

@@ -29,7 +29,7 @@ module.exports = {
             lines: 73,
             statements: 72
         },
-        './src/api.ts': {
+        './src/api/client.ts': {
             branches: 100,
             functions: 100,
             lines: 100,
