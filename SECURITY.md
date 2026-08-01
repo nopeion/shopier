@@ -31,6 +31,7 @@ You should receive an initial response within 72 hours. Valid reports will be ha
 ## Webhook and OSB Safety
 
 - Always verify REST webhook or OSB signatures before delivering a product, credit, or entitlement.
+- The SDK utilizes hardened JSON parsing by default. It actively filters `__proto__`, `constructor`, and `prototype` keys from incoming Webhook and OSB payloads, nullifying Prototype Pollution vectors.
 - Treat invalid signatures as a hard failure.
 - Make webhook and OSB processing idempotent. Shopier or the network may retry notifications.
 - Use stable provider identifiers such as webhook id, Shopier order id, or OSB order id to prevent duplicate fulfillment.

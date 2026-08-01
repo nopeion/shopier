@@ -262,8 +262,11 @@ export class ShopierPaymentFlow {
   async cleanupProducts(products: string | string[] | PaymentLinkResult | HandlePaymentWebhookResult): Promise<string[]> {
     const productIds = normalizeProductIds(products);
 
-    for (const productId of productIds) {
-      await this.client.products.delete(productId);
+    // Limit concurrency to avoid hitting rate limits, using simple chunks of 5
+    const chunkSize = 5;
+    for (let i = 0; i < productIds.length; i += chunkSize) {
+      const chunk = productIds.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(productId => this.client.products.delete(productId)));
     }
 
     return productIds;

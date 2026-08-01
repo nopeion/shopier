@@ -18,6 +18,9 @@ TypeScript/Node.js SDK for Shopier PAT checkout flows, REST API calls, REST webh
 - Automatic refund creation through `client.refunds.create()` / `client.createRefund()`.
 - REST webhook HMAC-SHA256 verification and typed event parsing.
 - OSB `res` + `hash` verification and payload normalization.
+- Hardened JSON parsing (Prototype Pollution protection) for OSB and Webhook payload processing.
+- Parallelized batch execution (chunked Promise.all) for mass product cleanup operations.
+- Modular core architecture for zero-breakage external imports.
 - Diagnostics, webhook router, framework response helpers, and test fixtures for real integrations.
 - Named credential support for PAT and OSB credentials.
 - ESM, CommonJS, and TypeScript declaration output.

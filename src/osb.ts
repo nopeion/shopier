@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { resolveOsbCredentials } from './core/credentials';
+import { safeJsonParse } from './utils';
 
 export interface OsbCredentials {
   username: string;
@@ -159,7 +160,7 @@ function timingSafeCompareHex(expected: string, received: string): boolean {
 function parseBase64Json(res: string): Record<string, unknown> {
   try {
     const decoded = Buffer.from(res, 'base64').toString('utf8');
-    const parsed = JSON.parse(decoded);
+    const parsed = safeJsonParse(decoded);
 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error('OSB payload must be a JSON object');
