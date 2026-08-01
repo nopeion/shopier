@@ -6,7 +6,7 @@ import {
   ShopierApiRequestError,
   ValidationError,
 } from '../errors';
-import { 
+import {
   ShopierHttpMethod,
   ShopierCurrencyCode,
   ShopierSortDirection,

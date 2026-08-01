@@ -653,4 +653,3 @@ export interface ShopierWebhooksApi {
   create: (input: ShopierCreateWebhookInput, options?: ShopierCreateOptions) => Promise<ShopierWebhookSubscription>;
   delete: (webhookId: string) => Promise<void>;
 }
-
