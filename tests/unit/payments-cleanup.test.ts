@@ -4,7 +4,14 @@ import { ShopierProduct, ShopierCreateProductInput } from '../../src/api/types';
 
 describe('ShopierPaymentFlow.cleanupProducts', () => {
   it('should clean up products in chunked batches of 5', async () => {
-    const deleteMock = jest.fn().mockResolvedValue(undefined);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const deleteMock = jest.fn(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      inFlight -= 1;
+    });
     const mockClient = {
       products: {
         delete: deleteMock,
@@ -20,6 +27,8 @@ describe('ShopierPaymentFlow.cleanupProducts', () => {
 
     expect(result).toEqual(productIds);
     expect(deleteMock).toHaveBeenCalledTimes(12);
+    expect(maxInFlight).toBe(5);
+    expect(inFlight).toBe(0);
     productIds.forEach((id) => {
       expect(deleteMock).toHaveBeenCalledWith(id);
     });
